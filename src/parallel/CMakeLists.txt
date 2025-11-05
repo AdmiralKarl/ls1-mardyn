@@ -12,7 +12,7 @@ if(ENABLE_MPI)
             CommunicationPartner.cpp
             DomainDecompMPIBase.cpp
             DomainDecomposition.cpp
-            GeneralDomainDecomposition.cpp
+            # GeneralDomainDecomposition.cpp Disabled due to reimplementation
             KDDecomposition.cpp
             KDDStaticValues.cpp
             KDNode.cpp
@@ -28,7 +28,7 @@ if(ENABLE_MPI)
             StaticIrregDomainDecomposition.cpp
         )
     if(ENABLE_ALLLBL)
-        target_sources(MarDyn PRIVATE ALLLoadBalancer.cpp)
+        #target_sources(MarDyn PRIVATE ALLLoadBalancer.cpp) Disabled due to reimplementation
     endif(ENABLE_ALLLBL)
 endif(ENABLE_MPI)
 
