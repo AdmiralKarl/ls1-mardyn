@@ -4,7 +4,7 @@
  * @date 11.04.19
  */
 
-#include "GeneralDomainDecomposition.h"
+#include "GeneralDomainDecompositionOld.h"
 #ifdef ENABLE_ALLLBL
 #include "ALLLoadBalancer.h"
 #endif
@@ -23,14 +23,14 @@
 #include <tuple>
 #include <sstream>
 
-GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain, bool forceGrid)
+GeneralDomainDecompositionOld::GeneralDomainDecompositionOld(double interactionLength, Domain* domain, bool forceGrid)
 	: _boxMin{0.},
 	  _boxMax{0.},
 	  _domainLength{domain->getGlobalLength(0), domain->getGlobalLength(1), domain->getGlobalLength(2)},
 	  _interactionLength{interactionLength},
 	  _forceLatchingToLinkedCellsGrid{forceGrid} {}
 
-void GeneralDomainDecomposition::initializeALL() {
+void GeneralDomainDecompositionOld::initializeALL() {
 	Log::global_log->info() << "initializing ALL load balancer..." << std::endl;
 	auto gridSize = getOptimalGrid(_domainLength, this->getNumProcs());
 	auto gridCoords = getCoordsFromRank(gridSize, _rank);
@@ -68,18 +68,18 @@ void GeneralDomainDecomposition::initializeALL() {
 					   << std::endl;
 }
 
-double GeneralDomainDecomposition::getBoundingBoxMin(int dimension, Domain* /*domain*/) { return _boxMin[dimension]; }
+double GeneralDomainDecompositionOld::getBoundingBoxMin(int dimension, Domain* /*domain*/) { return _boxMin[dimension]; }
 
-GeneralDomainDecomposition::~GeneralDomainDecomposition() = default;
+GeneralDomainDecompositionOld::~GeneralDomainDecompositionOld() = default;
 
-double GeneralDomainDecomposition::getBoundingBoxMax(int dimension, Domain* /*domain*/) { return _boxMax[dimension]; }
+double GeneralDomainDecompositionOld::getBoundingBoxMax(int dimension, Domain* /*domain*/) { return _boxMax[dimension]; }
 
-bool GeneralDomainDecomposition::queryRebalancing(size_t step, size_t updateFrequency, size_t initPhase,
+bool GeneralDomainDecompositionOld::queryRebalancing(size_t step, size_t updateFrequency, size_t initPhase,
 												  size_t initUpdateFrequency, double /*lastTraversalTime*/) {
 	return step <= initPhase ? step % initUpdateFrequency == 0 : step % updateFrequency == 0;
 }
 
-void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
+void GeneralDomainDecompositionOld::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {
 	const bool rebalance =
 		queryRebalancing(_steps, _rebuildFrequency, _initPhase, _initFrequency, lastTraversalTime) or forceRebalancing;
@@ -140,7 +140,7 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	++_steps;
 }
 
-void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
+void GeneralDomainDecompositionOld::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
 												  std::array<double, 3> newMin, std::array<double, 3> newMax) {
 	std::array<double, 3> oldBoxMin{particleContainer->getBoundingBoxMin(0), particleContainer->getBoundingBoxMin(1),
 									particleContainer->getBoundingBoxMin(2)};
@@ -253,7 +253,7 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	}
 }
 
-void GeneralDomainDecomposition::initCommPartners(ParticleContainer* moleculeContainer,
+void GeneralDomainDecompositionOld::initCommPartners(ParticleContainer* moleculeContainer,
 												  Domain* domain) {  // init communication partners
 	auto coversWholeDomain = _loadBalancer->getCoversWholeDomain();
 	for (int d = 0; d < DIMgeom; ++d) {
@@ -264,7 +264,7 @@ void GeneralDomainDecomposition::initCommPartners(ParticleContainer* moleculeCon
 															 moleculeContainer);
 }
 
-void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
+void GeneralDomainDecompositionOld::readXML(XMLfileUnits& xmlconfig) {
 	// Ensures that the readXML() call to DomainDecompMPIBase forces the direct-pp communication scheme.
 	_forceDirectPP = true;
 
@@ -355,7 +355,7 @@ std::vector<size_t> getOrdering(const ArrayType& data) {
 	return index;
 }
 
-std::array<size_t, 3> GeneralDomainDecomposition::getOptimalGrid(const std::array<double, 3>& domainLength,
+std::array<size_t, 3> GeneralDomainDecompositionOld::getOptimalGrid(const std::array<double, 3>& domainLength,
 																 int numProcs) {
 	// generate default grid
 	std::array<int, 3> gridSize{0};
@@ -371,7 +371,7 @@ std::array<size_t, 3> GeneralDomainDecomposition::getOptimalGrid(const std::arra
 	return grid;
 }
 
-std::array<size_t, 3> GeneralDomainDecomposition::getCoordsFromRank(const std::array<size_t, 3>& gridSize, int rank) {
+std::array<size_t, 3> GeneralDomainDecompositionOld::getCoordsFromRank(const std::array<size_t, 3>& gridSize, int rank) {
 	auto yzSize = gridSize[1] * gridSize[2];
 	auto zSize = gridSize[2];
 	auto x = rank / yzSize;
@@ -380,7 +380,7 @@ std::array<size_t, 3> GeneralDomainDecomposition::getCoordsFromRank(const std::a
 	return {x, y, z};
 }
 
-std::tuple<std::array<double, 3>, std::array<double, 3>> GeneralDomainDecomposition::initializeRegularGrid(
+std::tuple<std::array<double, 3>, std::array<double, 3>> GeneralDomainDecompositionOld::initializeRegularGrid(
 	const std::array<double, 3>& domainLength, const std::array<size_t, 3>& gridSize,
 	const std::array<size_t, 3>& gridCoords) {
 	std::array<double, 3> boxMin{0.};

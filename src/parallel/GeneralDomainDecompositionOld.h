@@ -17,7 +17,7 @@
 /**
  * This decomposition is meant to be able to call arbitrary load balancers.
  */
-class GeneralDomainDecomposition : public DomainDecompMPIBase {
+class GeneralDomainDecompositionOld : public DomainDecompMPIBase {
 public:
 	/**
 	 * Constructor for the GeneralDomainDecomposition.
@@ -25,10 +25,10 @@ public:
 	 * @param domain
 	 * @param forceGrid
 	 */
-	GeneralDomainDecomposition(double interactionLength, Domain* domain, bool forceGrid);
+	GeneralDomainDecompositionOld(double interactionLength, Domain* domain, bool forceGrid);
 
 	// documentation see father class (DomainDecompBase.h)
-	~GeneralDomainDecomposition() override;
+	~GeneralDomainDecompositionOld() override;
 
 	/** @brief Read in XML configuration for DomainDecomposition and all its included objects.
 	 *
