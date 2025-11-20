@@ -30,7 +30,7 @@
 #ifdef ENABLE_MPI
 #include "parallel/DomainDecomposition.h"
 #include "parallel/KDDecomposition.h"
-//#include "parallel/GeneralDomainDecomposition.h"
+#include "parallel/GeneralDomainDecomposition.h"
 #include "parallel/StaticIrregDomainDecomposition.h"
 #endif
 
@@ -382,10 +382,7 @@ void Simulation::readXML(XMLfileUnits& xmlconfig) {
 					MARDYN_EXIT(error_message.str());
 				}
 				delete _domainDecomposition;
-				std::ostringstream error_message;
-				error_message << "Disabled due to reimplementation. Aborting." << std::endl;
-				MARDYN_EXIT(error_message.str());
-				//_domainDecomposition = new GeneralDomainDecomposition(getcutoffRadius() + skin, _domain, forceLatchingToLinkedCellsGrid);
+				_domainDecomposition = new GeneralDomainDecomposition(getcutoffRadius() + skin, _domain);
 			} else {
 				std::ostringstream error_message;
 				error_message << "Unknown parallelisation type: " << parallelisationtype << std::endl;

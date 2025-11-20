@@ -8,13 +8,13 @@
 #ifdef ENABLE_ALLLBL
 #include <ALL.hpp>
 #include "LoadBalancer.h"
+#include "parallel/DomainDecompMPIBase.h"
 
 #include <tuple>
 class ALLLoadBalancer : public LoadBalancer {
 public:
-	ALLLoadBalancer(std::array<double, 3> boxMin, std::array<double, 3> boxMax, double gamma, MPI_Comm comm,
-					std::array<size_t, 3> globalSize, std::array<size_t, 3> localCoordinates,
-					std::array<double, 3> minimalPartitionSize);
+	ALLLoadBalancer(std::array<double, DIMgeom> localBoxMin, std::array<double, DIMgeom> localBoxMax, double gamma,
+								 MPI_Comm comm, std::array<int, 3> globalSize, std::vector<double> minimalPartitionSize);
 
 	~ALLLoadBalancer() override = default;
 	std::tuple<std::array<double, 3>, std::array<double, 3>> rebalance(double work) override;
@@ -25,8 +25,10 @@ public:
 	std::array<bool, 3> getCoversWholeDomain() override { return _coversWholeDomain; }
 
 private:
-	ALL<double, double> _all;
-	using Point = ALL_Point<double>;
+	std::unique_ptr<ALL::ALL<double, double>> _all;
+	std::array<double, 3> _localBoxMin;
+	std::array<double, 3> _localBoxMax;
+
 	std::array<double, 3> _minimalPartitionSize{};
 	std::array<bool, 3> _coversWholeDomain{};
 };
