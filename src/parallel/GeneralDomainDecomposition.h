@@ -92,7 +92,28 @@ private:
     std::tuple<std::array<double, 3>, std::array<double, 3>> initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, const std::array<int, DIMgeom>& gridSize,
 	const std::array<int, DIMgeom>& gridCoords);
 
+	void initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer);
+
+
+	void rebalance(double lastTraversalTime, ParticleContainer* moleculeContainer, Domain* domain);
+
+		/**
+	 * Exchange the particles, s.t., particles are withing the particleContainer of the process they belong to.
+	 * This function will rebuild the particleContainer.
+	 * @param domain
+	 * @param particleContainer
+	 * @param newMin new minimum of the own subdomain
+	 * @param newMax new maximum of the own subdomain
+	 */
+	void migrateParticles(Domain* domain, ParticleContainer* particleContainer, std::array<double, 3> newMin,
+						  std::array<double, 3> newMax);
+
+	
+	bool checkRebalancing(size_t step);
+
     // variables
+	const bool debugMode = false;
+
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;
 
