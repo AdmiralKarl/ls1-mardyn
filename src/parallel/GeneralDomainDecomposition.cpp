@@ -129,10 +129,18 @@ bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {							
 	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
+	
+	if (_steps == 0) {
+		// ensure that there are no outer particles
+		moleculeContainer->deleteOuterParticles();
+		initCommunicationPartners(domain, moleculeContainer);
+		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
+		++_steps;
+		return;
+	}
 
 	if (doRebalance) {
 		rebalance(lastTraversalTime, moleculeContainer, domain);
-
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -146,7 +154,10 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
 			DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 		}
-	}		
+	}
+	_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+	_boundaryHandler.updateGlobalWallLookupTable();
+	++_steps;		
 }
 
 void GeneralDomainDecomposition::initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer) { 
@@ -172,16 +183,16 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	auto [newBoxMin, newBoxMax] = _loadBalancer->rebalance(lastTraversalTime);
 	
 																	
-	Log::global_log->info() << "migrating particles" << std::endl;
+	Log::global_log->debug() << "migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
 
 	#ifndef MARDYN_AUTOPAS
 			moleculeContainer->update();
 	#endif
 
-	Log::global_log->info() << "updating communication partners" << std::endl;
+	Log::global_log->debug() << "updating communication partners" << std::endl;
 	initCommunicationPartners(domain, moleculeContainer);
-	Log::global_log->info() << "rebalancing finished" << std::endl;
+	Log::global_log->debug() << "rebalancing finished" << std::endl;
 
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
