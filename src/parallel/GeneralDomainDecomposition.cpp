@@ -190,6 +190,9 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 			moleculeContainer->update();
 	#endif
 
+	_boxMin = newBoxMin;
+	_boxMax = newBoxMax;
+
 	Log::global_log->debug() << "updating communication partners" << std::endl;
 	initCommunicationPartners(domain, moleculeContainer);
 	Log::global_log->debug() << "rebalancing finished" << std::endl;
