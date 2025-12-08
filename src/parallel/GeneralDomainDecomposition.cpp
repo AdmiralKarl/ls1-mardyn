@@ -13,7 +13,6 @@
 #include "NeighborAcquirer.h"
 #include "NeighbourCommunicationScheme.h"
 
-#include "utils/String_utils.h"
 #include "utils/mardyn_assert.h"
 
 #include <memory>
@@ -22,8 +21,6 @@
 #include <algorithm>
 #include <tuple>
 #include <sstream>
-
-
 
 
 GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain) : GeneralDomainDecomposition(interactionLength, domain, MPI_COMM_WORLD) {}

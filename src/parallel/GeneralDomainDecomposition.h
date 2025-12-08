@@ -6,10 +6,7 @@
 
 #pragma once
 
-#include <optional>
-
 #include "Domain.h"
-
 #include "particleContainer/ParticleContainer.h"
 #include "DomainDecompMPIBase.h"
 #include "LoadBalancer.h"
@@ -36,7 +33,7 @@ public:
 	// documentation see father class (DomainDecompBase.h)
 	~GeneralDomainDecomposition() override;
 
-	// TODO
+	// Read in XML configuration for GeneralDomainDecomposition and all its included objects.
 	void readXML(XMLfileUnits& xmlconfig) override;
 
 	// documentation see father class (DomainDecompBase.h)
@@ -87,17 +84,32 @@ private:
 	 * Method that initializes the ALLLoadBalancer
 	 */
 	void initializeALLLoadBalancer();
+	
+	/**
+	Creates a new MPI communicator with topology information added.
+	*/
 	void initMPIGridDims();
 
     std::tuple<std::array<double, 3>, std::array<double, 3>> initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, const std::array<int, DIMgeom>& gridSize,
 	const std::array<int, DIMgeom>& gridCoords);
+	
 
+	/**
+	 * Initializes communication partners
+	 * @param moleculeContainer
+	 * @param domain
+	 */
 	void initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer);
 
-
+	/**
+	 * Calculate new distribution on process and migrate accordingly.
+	 * @param lastTraversalTime time of last calculation
+	 * @param domain
+	 * @param particleContainer
+	 */
 	void rebalance(double lastTraversalTime, ParticleContainer* moleculeContainer, Domain* domain);
 
-		/**
+	/**
 	 * Exchange the particles, s.t., particles are withing the particleContainer of the process they belong to.
 	 * This function will rebuild the particleContainer.
 	 * @param domain
@@ -108,7 +120,10 @@ private:
 	void migrateParticles(Domain* domain, ParticleContainer* particleContainer, std::array<double, 3> newMin,
 						  std::array<double, 3> newMax);
 
-	
+	/**
+	 * Check whether a rebalancing is necessary.
+	 * @param step current step of the simulation
+	 */
 	bool checkRebalancing(size_t step);
 
     // variables
@@ -125,17 +140,13 @@ private:
 
 	size_t _initPhase{0};
 	size_t _initFrequency{500};
-
-	/**
-	 * Bool that indicates whether a grid should be forced even if no gridSize is set.
-	 */
-	bool _forceLatchingToLinkedCellsGrid{false};
-
+	
+	// the LoadBalancer used
 	std::unique_ptr<LoadBalancer> _loadBalancer{nullptr};
 	
+	 // Number of processes in each dimension of the MPI process grid
+	std::array<int, DIMgeom> _gridSize;
 	
-	std::array<int, DIMgeom> _gridSize; //!< Number of processes in each dimension of the MPI process grid
-	//int _coords[DIMgeom]; //!< Coordinate of the process in the MPI process grid
-
+	// Coordinate of the process in the MPI process grid
 	std::array<int, DIMgeom> _coords;
 };
