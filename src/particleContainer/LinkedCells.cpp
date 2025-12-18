@@ -200,6 +200,14 @@ bool LinkedCells::rebuild(double bBoxMin[3], double bBoxMax[3]) {
 
 }
 
+std::vector<Molecule> LinkedCells::rebuildFilter(double bBoxMin[3], double bBoxMax[3]) {
+		std::ostringstream error_message;
+		error_message << "LinkedCells: function rebuildFilter not implemented\n" << std::endl;
+		MARDYN_EXIT(error_message.str());
+		return {}; // dummy return
+}
+
+
 void LinkedCells::check_molecules_in_box() {
 	std::vector<Molecule> badMolecules;
 	unsigned numBadMolecules = 0;
