@@ -233,39 +233,52 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
 
-	std::vector<Molecule> dummy;
-	for (auto& sender : sendNeighbors) {
-		sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
-						false /*don't use invalid particles*/, true /*do halo position change*/,
-						true /*removeFromContainer*/);
-	}
-	// TODO: Using the autopas resizeBox functions would be more efficient.
-	std::vector<Molecule> ownMolecules{};
-	ownMolecules.reserve(particleContainer->getNumberOfParticles());
-	for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
-		ownMolecules.push_back(*iter);
-		if(debugMode){
-			if (not iter->inBox(newMin.data(), newMax.data())) {
-				std::ostringstream error_message;
-				error_message
-					<< "Particle still in domain that should have been migrated."
-					<< "BoxMin: "
-					<< particleContainer->getBoundingBoxMin(0) << ", "
-					<< particleContainer->getBoundingBoxMin(1) << ", "
-					<< particleContainer->getBoundingBoxMin(2) << "\n"
-					<< "BoxMax: "
-					<< particleContainer->getBoundingBoxMax(0) << ", "
-					<< particleContainer->getBoundingBoxMax(1) << ", "
-					<< particleContainer->getBoundingBoxMax(2) << "\n"
-					<< "Particle: \n" << *iter
-					<< std::endl;
-				MARDYN_EXIT(error_message.str());
+	#ifdef MARDYN_AUTOPAS
+		{
+			std::vector<Molecule> emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
+			for (auto& sender : sendNeighbors) {
+				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, emigrants,
+								true , true, false);
 			}
-		} 
-	}
-	particleContainer->clear();
-	particleContainer->rebuild(newMin.data(), newMax.data());
-	particleContainer->addParticles(ownMolecules);
+		}
+	#else
+		{
+			std::vector<Molecule> dummy;
+			for (auto& sender : sendNeighbors) {
+				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
+								false /*don't use invalid particles*/, true /*do halo position change*/,
+								true /*removeFromContainer*/);
+			}
+
+			std::vector<Molecule> ownMolecules{};
+			ownMolecules.reserve(particleContainer->getNumberOfParticles());
+			for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
+				ownMolecules.push_back(*iter);
+				if(debugMode){
+					if (not iter->inBox(newMin.data(), newMax.data())) {
+						std::ostringstream error_message;
+						error_message
+							<< "Particle still in domain that should have been migrated."
+							<< "BoxMin: "
+							<< particleContainer->getBoundingBoxMin(0) << ", "
+							<< particleContainer->getBoundingBoxMin(1) << ", "
+							<< particleContainer->getBoundingBoxMin(2) << "\n"
+							<< "BoxMax: "
+							<< particleContainer->getBoundingBoxMax(0) << ", "
+							<< particleContainer->getBoundingBoxMax(1) << ", "
+							<< particleContainer->getBoundingBoxMax(2) << "\n"
+							<< "Particle: \n" << *iter
+							<< std::endl;
+						MARDYN_EXIT(error_message.str());
+					}
+				} 
+			}
+			particleContainer->clear();
+			particleContainer->rebuild(newMin.data(), newMax.data());
+			particleContainer->addParticles(ownMolecules);
+		}
+	#endif
+
 	bool allDone = false;
 	double waitCounter = 30.0;
 	double deadlockTimeOut = 360.0;
