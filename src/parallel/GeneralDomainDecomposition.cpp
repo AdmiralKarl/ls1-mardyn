@@ -38,9 +38,29 @@ void GeneralDomainDecomposition::initMPIGridDims() {
 	mardyn_assert(DIMgeom == 3);
 	int period[DIMgeom] = {1, 1, 1}; // 1(true) when using periodic boundary conditions in the corresponding dimension
 	int reorder = 1; // 1(true) if the ranking may be reordered by MPI_Cart_create
+	{
+		auto numProcsGridSize = _gridSize[0] * _gridSize[1] * _gridSize[2];
+		if (numProcsGridSize != _numProcs and numProcsGridSize != 0) {
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: Wrong grid size given!" << std::endl;
+			error_message << "\tnumProcs is " << _numProcs << "," << std::endl;
+			error_message << "\tbut grid is " << _gridSize[0] << " x " << _gridSize[1] << " x " << _gridSize[2] << std::endl;
+			error_message << "\tresulting in " << numProcsGridSize << " subdomains!" << std::endl;
+			error_message << "\tplease check your input file!" << std::endl;
+			MARDYN_EXIT(error_message.str());
+		}
+	}
+	MPI_Comm previousComm = _comm;
 
 	MPI_CHECK(MPI_Dims_create( _numProcs, DIMgeom, _gridSize.data()));
 	MPI_CHECK(MPI_Cart_create(_comm, DIMgeom, _gridSize.data(), period, reorder, &_comm));
+
+	// If initMPIGridDims has already been executed, the previous communicator is deleted.
+	if (_cartCommunicatorCreated) {
+		MPI_Comm_free(&previousComm);
+	}
+	_cartCommunicatorCreated = true;
+
 
 	Log::global_log->info() << "MPI grid dimensions: " << _gridSize[0] << ", " << _gridSize[1] << ", " << _gridSize[2] << std::endl;
 	MPI_CHECK(MPI_Comm_rank(_comm, &_rank));
@@ -91,6 +111,14 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	Log::global_log->info() << "GeneralDomainDecomposition frequency for initial rebalancing phase: " << _initFrequency
 					   << std::endl;
 
+	if(xmlconfig.changecurrentnode("MPIGridDims")) {
+		_gridSize[0] = xmlconfig.getNodeValue_int("x", 0);
+		_gridSize[1] = xmlconfig.getNodeValue_int("y", 0);
+		_gridSize[2] = xmlconfig.getNodeValue_int("z", 0);
+		initMPIGridDims();
+		xmlconfig.changecurrentnode("..");
+	}
+
 	if (xmlconfig.changecurrentnode("loadBalancer")) {
 		std::string loadBalancerString = "None";
 		xmlconfig.getNodeValue("@type", loadBalancerString);
@@ -107,12 +135,12 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 			MARDYN_EXIT(error_message.str());
 		}
 		_loadBalancer->readXML(xmlconfig);
+		xmlconfig.changecurrentnode("..");
 	} else {
 		std::ostringstream error_message;
 		error_message << "loadBalancer section missing! Aborting!" << std::endl;
 		MARDYN_EXIT(error_message.str());
 	}
-	xmlconfig.changecurrentnode("..");
 }
 
 double GeneralDomainDecomposition::getBoundingBoxMin(int dimension, Domain* /*domain*/) { return _boxMin[dimension]; }

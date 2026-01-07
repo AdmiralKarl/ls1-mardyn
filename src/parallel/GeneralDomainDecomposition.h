@@ -128,6 +128,7 @@ private:
 
     // variables
 	const bool debugMode = false;
+	bool _cartCommunicatorCreated = false; // Indicates whether a communicator with topology information has already been created.
 
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;
