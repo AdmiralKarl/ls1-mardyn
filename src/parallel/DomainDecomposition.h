@@ -79,6 +79,7 @@ protected:
 
 	std::array<int, DIMgeom> _gridSize; //!< Number of processes in each dimension of the MPI process grid
 	int _coords[DIMgeom]; //!< Coordinate of the process in the MPI process grid
+	size_t _steps{0};
 };
 
 #endif /* DOMAINDECOMPOSITION_H_ */

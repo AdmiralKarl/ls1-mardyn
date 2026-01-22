@@ -90,8 +90,21 @@ bool DomainDecomposition::queryBalanceAndExchangeNonBlocking(bool /*forceRebalan
 	return true;
 }
 
-void DomainDecomposition::balanceAndExchange(double /*lastTraversalTime*/, bool /*forceRebalancing*/, ParticleContainer* moleculeContainer,
+void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*forceRebalancing*/, ParticleContainer* moleculeContainer,
 		Domain* domain) {
+
+	Log::global_log->set_mpi_output_all();
+	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
+	if (_steps == 0) {
+		Log::global_log->info() << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";from"
+			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"
+			<< " [" << getBoundingBoxMax(0, domain) << ", " << getBoundingBoxMax(1, domain) << ", " << getBoundingBoxMax(2, domain) << "] to"
+			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"
+			<< " [" << getBoundingBoxMax(0, domain) << ", " << getBoundingBoxMax(1, domain) << ", " << getBoundingBoxMax(2, domain) << "]" << std::endl;
+	}
+	++_steps;
+	Log::global_log->set_mpi_output_root(0);
+
 	if (sendLeavingWithCopies()) {
 		Log::global_log->debug() << "DD: Sending Leaving and Halos." << std::endl;
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, LEAVING_AND_HALO_COPIES);

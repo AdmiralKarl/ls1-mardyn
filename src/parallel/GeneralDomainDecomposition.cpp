@@ -154,6 +154,10 @@ bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {							
 	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
+
+	Log::global_log->set_mpi_output_all();
+	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
+	Log::global_log->set_mpi_output_root(0);
 	
 	if (_steps == 0) {
 		// ensure that there are no outer particles
@@ -246,14 +250,12 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 		newDomain.offset[i] = 0;
 	}
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->debug() << "migrating from"
-						<< " [" << oldBoxMin[0] << ", " << oldBoxMax[0] << "] x"
-						<< " [" << oldBoxMin[1] << ", " << oldBoxMax[1] << "] x"
-						<< " [" << oldBoxMin[2] << ", " << oldBoxMax[2] << "] " << std::endl;
-	Log::global_log->debug() << "to"
-						<< " [" << newMin[0] << ", " << newMax[0] << "] x"
-						<< " [" << newMin[1] << ", " << newMax[1] << "] x"
-						<< " [" << newMin[2] << ", " << newMax[2] << "]." << std::endl;
+	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";from"
+			<< " [" << oldBoxMin[0] << ", " << oldBoxMin[1] << ", " << oldBoxMin[2] << "] x"
+			<< " [" << oldBoxMax[0] << ", " << oldBoxMax[1] << ", " << oldBoxMax[2] << "] to"
+			<< " [" << newMin[0] << ", " << newMin[1] << ", " << newMin[2] << "] x"
+			<< " [" << newMax[0] << ", " << newMax[1] << ", " << newMax[2] << "]" << std::endl;
+	Log::global_log->set_mpi_output_root(0);
 	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
