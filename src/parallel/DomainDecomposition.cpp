@@ -96,7 +96,7 @@ void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*fo
 	Log::global_log->set_mpi_output_all();
 	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
 	if (_steps == 0) {
-		Log::global_log->info() << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";from"
+		Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";rank" << getRank() << ";from"
 			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"
 			<< " [" << getBoundingBoxMax(0, domain) << ", " << getBoundingBoxMax(1, domain) << ", " << getBoundingBoxMax(2, domain) << "] to"
 			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"

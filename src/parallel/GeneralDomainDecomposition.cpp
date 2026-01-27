@@ -249,13 +249,14 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 		ownDomain.offset[i] = 0;
 		newDomain.offset[i] = 0;
 	}
+
+	
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";from"
+	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";rank" << getRank() << ";from"
 			<< " [" << oldBoxMin[0] << ", " << oldBoxMin[1] << ", " << oldBoxMin[2] << "] x"
 			<< " [" << oldBoxMax[0] << ", " << oldBoxMax[1] << ", " << oldBoxMax[2] << "] to"
 			<< " [" << newMin[0] << ", " << newMin[1] << ", " << newMin[2] << "] x"
 			<< " [" << newMax[0] << ", " << newMax[1] << ", " << newMax[2] << "]" << std::endl;
-	Log::global_log->set_mpi_output_root(0);
 	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
