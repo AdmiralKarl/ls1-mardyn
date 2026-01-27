@@ -111,6 +111,14 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	Log::global_log->info() << "GeneralDomainDecomposition frequency for initial rebalancing phase: " << _initFrequency
 					   << std::endl;
 
+	xmlconfig.getNodeValue("smoothingLength", _smootherLen);
+	Log::global_log->info() << "GeneralDomainDecomposition length of smoothing for rebalancing time: " << _smootherLen << std::endl;
+	if (_smootherLen > 0) {
+		std::vector<double> _smootherVector(_smootherLen);
+	} else {
+		_smootherLen = 0;
+	}
+
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
 		_gridSize[0] = xmlconfig.getNodeValue_int("x", 0);
 		_gridSize[1] = xmlconfig.getNodeValue_int("y", 0);
@@ -169,7 +177,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	}
 
 	if (doRebalance) {
-		rebalance(lastTraversalTime, moleculeContainer, domain);
+		const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
+		rebalance(smoothLastTraversalTime, moleculeContainer, domain);
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -372,4 +381,19 @@ std::tuple<std::array<double, DIMgeom>, std::array<double, DIMgeom>> GeneralDoma
 		}
 	}
 	return std::make_tuple(boxMin, boxMax);
+}
+
+double GeneralDomainDecomposition::smoothingLastTraversalTime(size_t step, double lastTraversalTime) {
+	if (_smootherLen == 0) {
+		return lastTraversalTime;
+	}
+
+	auto index = step % _smootherLen;
+	_smootherVector[index] = lastTraversalTime;
+	if (step < _smootherLen) {
+		return lastTraversalTime;
+	}
+    
+    double sum = reduce(_smootherVector.begin(), _smootherVector.end(), 0);
+	return sum / _smootherLen;
 }
