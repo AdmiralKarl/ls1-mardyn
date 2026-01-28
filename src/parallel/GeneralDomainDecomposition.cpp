@@ -114,7 +114,8 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	xmlconfig.getNodeValue("smoothingLength", _smootherLen);
 	Log::global_log->info() << "GeneralDomainDecomposition length of smoothing for rebalancing time: " << _smootherLen << std::endl;
 	if (_smootherLen > 0) {
-		std::vector<double> _smootherVector(_smootherLen);
+		_smootherVector.resize(_smootherLen);
+		std::fill(_smootherVector.begin(), _smootherVector.end(), 0);
 	} else {
 		_smootherLen = 0;
 	}
@@ -162,6 +163,7 @@ bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {							
 	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
+	const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
 
 	Log::global_log->set_mpi_output_all();
 	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
@@ -177,7 +179,6 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	}
 
 	if (doRebalance) {
-		const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
 		rebalance(smoothLastTraversalTime, moleculeContainer, domain);
 	} else {
 		if (sendLeavingWithCopies()) {
@@ -390,10 +391,10 @@ double GeneralDomainDecomposition::smoothingLastTraversalTime(size_t step, doubl
 
 	auto index = step % _smootherLen;
 	_smootherVector[index] = lastTraversalTime;
-	if (step < _smootherLen) {
+	if (step < _smootherLen - 1) {
 		return lastTraversalTime;
 	}
-    
-    double sum = reduce(_smootherVector.begin(), _smootherVector.end(), 0);
+
+    const double sum = reduce(_smootherVector.begin(), _smootherVector.end(), 0.0);
 	return sum / _smootherLen;
 }
