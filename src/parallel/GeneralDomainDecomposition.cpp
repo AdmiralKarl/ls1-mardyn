@@ -166,7 +166,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
 
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
+	// Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
+	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << ";Swork:" << smoothLastTraversalTime << std::endl;
 	Log::global_log->set_mpi_output_root(0);
 	
 	if (_steps == 0) {
