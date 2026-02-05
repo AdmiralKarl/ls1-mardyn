@@ -92,18 +92,21 @@ bool DomainDecomposition::queryBalanceAndExchangeNonBlocking(bool /*forceRebalan
 
 void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*forceRebalancing*/, ParticleContainer* moleculeContainer,
 		Domain* domain) {
+	
+	_timeTestingData.push_back(lastTraversalTime);
 
-	Log::global_log->set_mpi_output_all();
-	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
 	if (_steps == 0) {
-		Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";rank" << getRank() << ";from"
-			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"
-			<< " [" << getBoundingBoxMax(0, domain) << ", " << getBoundingBoxMax(1, domain) << ", " << getBoundingBoxMax(2, domain) << "] to"
-			<< " [" << getBoundingBoxMin(0, domain) << ", " << getBoundingBoxMin(1, domain) << ", " << getBoundingBoxMin(2, domain) << "] x"
-			<< " [" << getBoundingBoxMax(0, domain) << ", " << getBoundingBoxMax(1, domain) << ", " << getBoundingBoxMax(2, domain) << "]" << std::endl;
+		_rebuildstepTestingData.push_back(0);
+		_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
+		_XMaxTestingData.push_back(getBoundingBoxMax(0, domain));
+		
+		_YMinTestingData.push_back(getBoundingBoxMin(1, domain));
+		_YMaxTestingData.push_back(getBoundingBoxMax(1, domain));
+		
+		_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
+		_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
 	}
 	++_steps;
-	Log::global_log->set_mpi_output_root(0);
 
 	if (sendLeavingWithCopies()) {
 		Log::global_log->debug() << "DD: Sending Leaving and Halos." << std::endl;

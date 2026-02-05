@@ -1355,6 +1355,7 @@ void Simulation::postSimLoopSteps()
 		getMemoryProfiler()->doOutput();
 	}
 	Log::global_log->info() << std::endl;
+	_domainDecomposition->TESTINGDATAOUTPUT();
 
 #ifdef WITH_PAPI
 	Log::global_log->info() << "PAPI counter values for loop timer:"  << std::endl;

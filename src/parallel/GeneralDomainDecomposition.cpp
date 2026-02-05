@@ -164,13 +164,21 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 													ParticleContainer* moleculeContainer, Domain* domain) {							
 	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
 	const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
-
-	Log::global_log->set_mpi_output_all();
-	// Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << std::endl;
-	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << "DATAOUT>step:" << _steps << ";work:" << lastTraversalTime << ";Swork:" << smoothLastTraversalTime << std::endl;
-	Log::global_log->set_mpi_output_root(0);
 	
+	_timeTestingData.push_back(lastTraversalTime);
+	_smootherTestingData.push_back(smoothLastTraversalTime);
+
 	if (_steps == 0) {
+		_rebuildstepTestingData.push_back(0);
+		_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
+		_XMaxTestingData.push_back(getBoundingBoxMax(0, domain));
+		
+		_YMinTestingData.push_back(getBoundingBoxMin(1, domain));
+		_YMaxTestingData.push_back(getBoundingBoxMax(1, domain));
+		
+		_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
+		_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
+
 		// ensure that there are no outer particles
 		moleculeContainer->deleteOuterParticles();
 		initCommunicationPartners(domain, moleculeContainer);
@@ -181,6 +189,17 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 
 	if (doRebalance) {
 		rebalance(smoothLastTraversalTime, moleculeContainer, domain);
+
+		_rebuildstepTestingData.push_back(_steps);
+
+		_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
+		_XMaxTestingData.push_back(getBoundingBoxMax(0, domain));
+		
+		_YMinTestingData.push_back(getBoundingBoxMin(1, domain));
+		_YMaxTestingData.push_back(getBoundingBoxMax(1, domain));
+		
+		_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
+		_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -261,14 +280,6 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 		newDomain.offset[i] = 0;
 	}
 
-	
-	Log::global_log->set_mpi_output_all();
-	Log::global_log->info() << std::fixed << std::setprecision(std::numeric_limits<double>::digits10)  << "DATAOUT>step:" << _steps << ";rank" << getRank() << ";from"
-			<< " [" << oldBoxMin[0] << ", " << oldBoxMin[1] << ", " << oldBoxMin[2] << "] x"
-			<< " [" << oldBoxMax[0] << ", " << oldBoxMax[1] << ", " << oldBoxMax[2] << "] to"
-			<< " [" << newMin[0] << ", " << newMin[1] << ", " << newMin[2] << "] x"
-			<< " [" << newMax[0] << ", " << newMax[1] << ", " << newMax[2] << "]" << std::endl;
-	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
 

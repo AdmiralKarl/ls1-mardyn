@@ -652,5 +652,37 @@ double DomainDecompBase::getIOCutoffRadius(int dim, Domain* domain,
 	return cutoff;
 }
 
+std::ostringstream DomainDecompBase::TESTINGDATAOUTPUTFORMATER(std::vector<double> inputData) {
+	std::ostringstream data_out;
+	
+	data_out << "[";
+	for (double num : inputData) {
+    	data_out << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << num << ",";
+	}
+	data_out << "]";
+
+	return data_out;
+}
+
+void DomainDecompBase::TESTINGDATAOUTPUT(){
+	std::ostringstream time_message = TESTINGDATAOUTPUTFORMATER(_timeTestingData);
+	std::ostringstream smoother_message = TESTINGDATAOUTPUTFORMATER(_smootherTestingData);
 
 
+	std::ostringstream rebuildstep_message = TESTINGDATAOUTPUTFORMATER(_rebuildstepTestingData);
+	std::ostringstream XMin_message = TESTINGDATAOUTPUTFORMATER(_XMinTestingData);
+	std::ostringstream YMin_message = TESTINGDATAOUTPUTFORMATER(_YMinTestingData);
+	std::ostringstream ZMin_message = TESTINGDATAOUTPUTFORMATER(_ZMinTestingData);
+	std::ostringstream XMax_message = TESTINGDATAOUTPUTFORMATER(_XMaxTestingData);
+	std::ostringstream YMax_message = TESTINGDATAOUTPUTFORMATER(_YMaxTestingData);
+	std::ostringstream ZMax_message = TESTINGDATAOUTPUTFORMATER(_ZMaxTestingData);
+
+	Log::global_log->info() << "DATAOUT>work:" << time_message.str() << ";Swork:" << smoother_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << 
+				";XMin:" << XMin_message.str() <<
+				";YMin:" << YMin_message.str() <<
+				";ZMin:" << ZMin_message.str() <<
+				";XMax:" << XMax_message.str() <<
+				";YMax:" << YMax_message.str() <<
+				";ZMax:" << ZMax_message.str() << std::endl;
+}

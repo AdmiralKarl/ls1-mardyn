@@ -370,3 +370,32 @@ void DomainDecompMPIBase::collCommAllreduceSumAllowPrevious() {
 		_collCommunication->allreduceSum();
 	}
 }
+
+void DomainDecompMPIBase::TESTINGDATAOUTPUT(){
+	std::ostringstream time_message = TESTINGDATAOUTPUTFORMATER(_timeTestingData);
+	std::ostringstream smoother_message = TESTINGDATAOUTPUTFORMATER(_smootherTestingData);
+
+	std::ostringstream rebuildstep_message = TESTINGDATAOUTPUTFORMATER(_rebuildstepTestingData);
+	std::ostringstream XMin_message = TESTINGDATAOUTPUTFORMATER(_XMinTestingData);
+	std::ostringstream YMin_message = TESTINGDATAOUTPUTFORMATER(_YMinTestingData);
+	std::ostringstream ZMin_message = TESTINGDATAOUTPUTFORMATER(_ZMinTestingData);
+	std::ostringstream XMax_message = TESTINGDATAOUTPUTFORMATER(_XMaxTestingData);
+	std::ostringstream YMax_message = TESTINGDATAOUTPUTFORMATER(_YMaxTestingData);
+	std::ostringstream ZMax_message = TESTINGDATAOUTPUTFORMATER(_ZMaxTestingData);
+
+	Log::global_log->set_mpi_output_all();	
+	for (int r = 0; r < _numProcs; r++) {
+		if (r == _rank){
+			Log::global_log->info() << "DATAOUTFULL>work:" << time_message.str() << ";Swork:" << smoother_message.str() << std::endl;
+			Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << 
+				";XMin:" << XMin_message.str() <<
+				";YMin:" << YMin_message.str() <<
+				";ZMin:" << ZMin_message.str() <<
+				";XMax:" << XMax_message.str() <<
+				";YMax:" << YMax_message.str() <<
+				";ZMax:" << ZMax_message.str() << std::endl;
+		}
+		barrier();
+	}
+	Log::global_log->set_mpi_output_root(0);
+}

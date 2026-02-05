@@ -347,6 +347,12 @@ public:
 	 */
 	void removeNonPeriodicHalos(ParticleContainer* moleculeContainer);
 
+	/**
+	 * Do not include in normal release	
+	*/
+	virtual void TESTINGDATAOUTPUT();
+	virtual std::ostringstream TESTINGDATAOUTPUTFORMATER(std::vector<double> inputData);
+
 protected:
 	void addLeavingMolecules(std::vector<Molecule>& invalidMolecules, ParticleContainer* moleculeContainer);
 
@@ -397,6 +403,20 @@ protected:
 	int _numProcs;
 
 	BoundaryHandler _boundaryHandler;
+
+	// Data for TESTINGDATAOUTPUT
+	std::vector<double> _timeTestingData;
+	std::vector<double> _smootherTestingData;
+
+	std::vector<double> _rebuildstepTestingData;
+
+	std::vector<double> _XMinTestingData;
+	std::vector<double> _YMinTestingData;
+	std::vector<double> _ZMinTestingData;
+
+	std::vector<double> _XMaxTestingData;
+	std::vector<double> _YMaxTestingData;
+	std::vector<double> _ZMaxTestingData;
 
 private:
 	CollectiveCommBase _collCommBase;

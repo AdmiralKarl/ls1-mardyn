@@ -229,6 +229,8 @@ public:
 	}
 
 	void printCommunicationPartners(std::string filename) const override;
+
+	virtual void TESTINGDATAOUTPUT() override;
 protected:
 
 	/**
