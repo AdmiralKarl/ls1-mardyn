@@ -341,7 +341,6 @@ void Simulation::readXML(XMLfileUnits& xmlconfig) {
 				_domainDecomposition = new KDDecomposition(getcutoffRadius(), _ensemble->getComponents()->size());
 			} else if (parallelisationtype == "GeneralDomainDecomposition") {
 				double skin = 0.;
-				bool forceLatchingToLinkedCellsGrid = false;
 				// We need the skin here (to specify the smallest possible partition), so we extract it from the AutoPas
 				// container's xml, because the ParticleContainer needs to be instantiated later. :/
 				xmlconfig.changecurrentnode("..");
@@ -359,18 +358,16 @@ void Simulation::readXML(XMLfileUnits& xmlconfig) {
 												  << std::endl;
 							MARDYN_EXIT(error_message.str());
 						}
-					} else {
-						Log::global_log->warning() << "Using the GeneralDomainDecomposition without AutoPas is not "
-												 "thoroughly tested and considered BETA."
-											  << std::endl;
-						// Force grid! This is needed, as the linked cells container assumes a grid and the calculation
-						// of global values will be faulty without one!
-						Log::global_log->info() << "Forcing a grid for the GeneralDomainDecomposition! This is required "
-												 "to get correct global values!"
-											  << std::endl;
-						forceLatchingToLinkedCellsGrid = true;
+						Log::global_log->info() << "Using skin = " << skin << " for the GeneralDomainDecomposition." << std::endl;
+					} else if (datastructuretype == "LinkedCells") {
+						skin = getcutoffRadius();
+						Log::global_log->info() << "Using skin = cutoffRadius for the GeneralDomainDecomposition." << std::endl;
 					}
-					Log::global_log->info() << "Using skin = " << skin << " for the GeneralDomainDecomposition." << std::endl;
+					else
+					{
+						Log::global_log->warning() << "Using the GeneralDomainDecomposition without AutoPas or LinkedCells is not tested" << std::endl;
+					}
+					
 				} else {
 					std::ostringstream error_message;
 					error_message << "Datastructure section missing" << std::endl;
