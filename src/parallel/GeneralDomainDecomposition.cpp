@@ -216,7 +216,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	}
 	_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
 	_boundaryHandler.updateGlobalWallLookupTable();
-	++_steps;		
+	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
+	++_steps;
 }
 
 void GeneralDomainDecomposition::initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer) { 

@@ -105,8 +105,7 @@ void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*fo
 		
 		_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
 		_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
-	}
-	++_steps;
+	}	
 
 	if (sendLeavingWithCopies()) {
 		Log::global_log->debug() << "DD: Sending Leaving and Halos." << std::endl;
@@ -120,6 +119,8 @@ void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*fo
 		Log::global_log->debug() << "DD: Sending Halos." << std::endl;
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 	}
+	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
+	++_steps;
 }
 
 void DomainDecomposition::readXML(XMLfileUnits& xmlconfig) {

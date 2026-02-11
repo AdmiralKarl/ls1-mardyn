@@ -656,7 +656,7 @@ std::ostringstream DomainDecompBase::TESTINGDATAOUTPUTFORMATER(std::vector<doubl
 	std::ostringstream data_out;
 	
 	data_out << "[";
-	for (double num : inputData) {
+	for (auto num : inputData) {
     	data_out << std::fixed << std::setprecision(std::numeric_limits<double>::digits10) << num << ",";
 	}
 	data_out << "]";
@@ -664,7 +664,20 @@ std::ostringstream DomainDecompBase::TESTINGDATAOUTPUTFORMATER(std::vector<doubl
 	return data_out;
 }
 
+std::ostringstream DomainDecompBase::TESTINGDATAOUTPUTFORMATER(std::vector<unsigned long> inputData) {
+	std::ostringstream data_out;
+	
+	data_out << "[";
+	for (auto num : inputData) {
+    	data_out << std::fixed << num << ",";
+	}
+	data_out << "]";
+
+	return data_out;
+}
+
 void DomainDecompBase::TESTINGDATAOUTPUT(){
+	std::ostringstream numberparticles_message = TESTINGDATAOUTPUTFORMATER(_numberParticlesTestingData);
 	std::ostringstream time_message = TESTINGDATAOUTPUTFORMATER(_timeTestingData);
 	std::ostringstream smoother_message = TESTINGDATAOUTPUTFORMATER(_smootherTestingData);
 
@@ -677,12 +690,14 @@ void DomainDecompBase::TESTINGDATAOUTPUT(){
 	std::ostringstream YMax_message = TESTINGDATAOUTPUTFORMATER(_YMaxTestingData);
 	std::ostringstream ZMax_message = TESTINGDATAOUTPUTFORMATER(_ZMaxTestingData);
 
-	Log::global_log->info() << "DATAOUT>work:" << time_message.str() << ";Swork:" << smoother_message.str() << std::endl;
-	Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << 
-				";XMin:" << XMin_message.str() <<
-				";YMin:" << YMin_message.str() <<
-				";ZMin:" << ZMin_message.str() <<
-				";XMax:" << XMax_message.str() <<
-				";YMax:" << YMax_message.str() <<
-				";ZMax:" << ZMax_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>numberparticles:" << numberparticles_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>time:" << time_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>timesmooth:" << smoother_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>XMin:" << XMin_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>YMin:" << YMin_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>ZMin:" << ZMin_message.str() << std::endl; 
+	Log::global_log->info() << "DATAOUTFULL>XMax:" << XMax_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>YMax:" << YMax_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>ZMax:" << ZMax_message.str() << std::endl;
 }

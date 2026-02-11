@@ -351,7 +351,8 @@ public:
 	 * Do not include in normal release	
 	*/
 	virtual void TESTINGDATAOUTPUT();
-	virtual std::ostringstream TESTINGDATAOUTPUTFORMATER(std::vector<double> inputData);
+	std::ostringstream TESTINGDATAOUTPUTFORMATER(std::vector<double> inputData);
+	std::ostringstream TESTINGDATAOUTPUTFORMATER(std::vector<unsigned long> inputData);
 
 protected:
 	void addLeavingMolecules(std::vector<Molecule>& invalidMolecules, ParticleContainer* moleculeContainer);
@@ -406,9 +407,10 @@ protected:
 
 	// Data for TESTINGDATAOUTPUT
 	std::vector<double> _timeTestingData;
+	std::vector<unsigned long> _numberParticlesTestingData;
 	std::vector<double> _smootherTestingData;
 
-	std::vector<double> _rebuildstepTestingData;
+	std::vector<unsigned long> _rebuildstepTestingData;
 
 	std::vector<double> _XMinTestingData;
 	std::vector<double> _YMinTestingData;
