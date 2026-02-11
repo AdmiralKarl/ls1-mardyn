@@ -4,9 +4,11 @@
  *  Created on: Nov 15, 2015
  *      Author: tchipevn
  */
+#include <chrono>
 #include <memory>
 #include <algorithm>
 #include <sstream>
+#include <thread>
 
 #include "DomainDecompMPIBase.h"
 #include "molecules/Molecule.h"
@@ -398,6 +400,7 @@ void DomainDecompMPIBase::TESTINGDATAOUTPUT(){
 			Log::global_log->info() << "DATAOUTFULL>YMax:" << YMax_message.str() << std::endl;
 			Log::global_log->info() << "DATAOUTFULL>ZMax:" << ZMax_message.str() << std::endl;
 		}
+		std::this_thread::sleep_for(std::chrono::seconds(1));
 		barrier();
 	}
 	Log::global_log->set_mpi_output_root(0);
