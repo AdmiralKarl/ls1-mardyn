@@ -183,6 +183,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		moleculeContainer->deleteOuterParticles();
 		initCommunicationPartners(domain, moleculeContainer);
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
+
+		_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
 		++_steps;
 		return;
 	}
