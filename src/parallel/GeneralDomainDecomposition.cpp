@@ -289,7 +289,7 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
 
-	#ifdef MARDYN_AUTOPAS
+	#ifdef does_not_exist
 		{
 			std::vector<Molecule> emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			for (auto& sender : sendNeighbors) {
