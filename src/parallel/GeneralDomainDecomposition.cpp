@@ -257,13 +257,16 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
+	#ifdef MARDYN_AUTOPAS
+	std::vector<Molecule> emigrants;
+	#endif
 
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
 
 	#ifdef MARDYN_AUTOPAS
 		{
-			std::vector<Molecule> emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
+			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			for (auto& sender : sendNeighbors) {
 				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, emigrants,
 								true , true, false);
@@ -351,6 +354,15 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			break;
 		}
 	}
+	#ifdef MARDYN_AUTOPAS
+	{
+		if(not emigrants.empty()){
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: Invalid particles that should have been sent, are still existent. They would be lost. Aborting...\n";						  
+			MARDYN_EXIT(error_message.str());
+		}
+	}
+	#endif
 }
 
 
