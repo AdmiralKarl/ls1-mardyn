@@ -166,6 +166,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 
 	if (doRebalance) {
 		rebalance(lastTraversalTime, moleculeContainer, domain);
+		_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+		_boundaryHandler.updateGlobalWallLookupTable();
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -180,8 +182,6 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 			DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 		}
 	}
-	_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
-	_boundaryHandler.updateGlobalWallLookupTable();
 	++_steps;		
 }
 
