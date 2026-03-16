@@ -201,10 +201,60 @@ bool LinkedCells::rebuild(double bBoxMin[3], double bBoxMax[3]) {
 }
 
 std::vector<Molecule> LinkedCells::rebuildFilter(double bBoxMin[3], double bBoxMax[3]) {
-		std::ostringstream error_message;
-		error_message << "LinkedCells: function rebuildFilter not implemented\n" << std::endl;
-		MARDYN_EXIT(error_message.str());
-		return {}; // dummy return
+			Log::global_log->info() << "REBUILD OF LinkedCells" << std::endl;
+
+	for (int i = 0; i < 3; i++) {
+		this->_boundingBoxMin[i] = bBoxMin[i];
+		this->_boundingBoxMax[i] = bBoxMax[i];
+//		_haloWidthInNumCells[i] = ::ceil(_cellsInCutoff);
+		_haloWidthInNumCells[i] = _cellsInCutoff;
+	}
+	Log::global_log->info() << "Bounding box: " << "[" << bBoxMin[0] << ", " << bBoxMax[0] << "]" << " x " << "["
+			<< bBoxMin[1] << ", " << bBoxMax[1] << "]" << " x " << "[" << bBoxMin[2] << ", " << bBoxMax[2] << "]"
+			<< std::endl;
+
+	int numberOfCells = 1;
+
+	Log::global_log->info() << "Using " << _cellsInCutoff << " cells in cutoff." << std::endl;
+	const float rc = (_cutoffRadius / _cellsInCutoff);
+
+	for (int dim = 0; dim < 3; dim++) {
+		_boxWidthInNumCells[dim] = floor((_boundingBoxMax[dim] - _boundingBoxMin[dim]) / rc);
+
+		_cellsPerDimension[dim] = _boxWidthInNumCells[dim] + 2 * _haloWidthInNumCells[dim];
+
+		// in each dimension at least one layer of (inner+boundary) cells necessary
+		if (_cellsPerDimension[dim] == 2 * _haloWidthInNumCells[dim]) {
+			std::ostringstream error_message;
+			error_message << "LinkedCells::rebuild: region too small" << std::endl;
+			MARDYN_EXIT(error_message.str());
+		}
+
+		numberOfCells *= _cellsPerDimension[dim];
+
+		double diff = _boundingBoxMax[dim] - _boundingBoxMin[dim];
+		_cellLength[dim] = diff / _boxWidthInNumCells[dim];
+		_cellLengthReciprocal[dim] = _boxWidthInNumCells[dim] / diff;
+
+		_haloLength[dim] = _haloWidthInNumCells[dim] * _cellLength[dim];
+
+		_haloBoundingBoxMin[dim] = _boundingBoxMin[dim] - _haloLength[dim];
+		_haloBoundingBoxMax[dim] = _boundingBoxMax[dim] + _haloLength[dim];
+	}
+
+	Log::global_log->info() << "Cells per dimension (incl. halo): " << _cellsPerDimension[0] << " x "
+			<< _cellsPerDimension[1] << " x " << _cellsPerDimension[2] << std::endl;
+
+
+	_cells.resize(numberOfCells);
+	initializeCells();
+
+	std::vector<Molecule> badMolecules = removeAndReturnParticlesOutsideBox(bBoxMin, bBoxMax);
+	check_molecules_in_box(); //TODO: Romove this check
+	initializeTraversal();
+	_cellsValid = false;
+
+	return badMolecules;
 }
 
 
@@ -616,6 +666,32 @@ void LinkedCells::deleteParticlesOutsideBox(double boxMin[3], double boxMax[3]) 
 			it.deleteCurrentParticle();
 		}
 	}
+}
+
+std::vector<Molecule> LinkedCells::removeAndReturnParticlesOutsideBox(double boxMin[3], double boxMax[3]) {
+	std::vector<Molecule> badMolecules;
+
+	#if defined(_OPENMP)
+	#pragma omp parallel 
+	#endif
+	{
+		for (ParticleIterator it = iterator(ParticleIterator::ALL_CELLS); it.isValid(); ++it) {
+			if (not it->inBox(boxMin, boxMax)) {
+				//TODO: Remove the critical section to improve paralyzation
+				#if defined(_OPENMP)
+				#pragma omp critical
+				#endif
+				{
+					badMolecules.push_back(*it);
+					it.deleteCurrentParticle();
+				}
+
+			}
+		}
+	}
+
+	return badMolecules;
+
 }
 
 void LinkedCells::deleteOuterParticles() {
