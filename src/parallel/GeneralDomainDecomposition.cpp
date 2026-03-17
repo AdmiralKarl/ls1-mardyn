@@ -257,19 +257,17 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
-	#ifdef MARDYN_AUTOPAS
 	std::vector<Molecule> emigrants;
-	#endif
 
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
-
-	#ifdef MARDYN_AUTOPAS
+	#if false
 		{
+			//TODO: In rare cases, the code crashes when using Autopass. This can be reproduced by setting the load balancing input to the process rank. 
 			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			for (auto& sender : sendNeighbors) {
 				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, emigrants,
-								true , true, false);
+								true , false);
 			}
 		}
 	#else
@@ -277,36 +275,11 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			std::vector<Molecule> dummy;
 			for (auto& sender : sendNeighbors) {
 				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
-								false /*don't use invalid particles*/, true /*do halo position change*/,
+								false /*don't use invalid particles*/, false /*do halo position change*/,
 								true /*removeFromContainer*/);
 			}
-
-			std::vector<Molecule> ownMolecules{};
-			ownMolecules.reserve(particleContainer->getNumberOfParticles());
-			for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
-				ownMolecules.push_back(*iter);
-				if(debugMode){
-					if (not iter->inBox(newMin.data(), newMax.data())) {
-						std::ostringstream error_message;
-						error_message
-							<< "Particle still in domain that should have been migrated."
-							<< "BoxMin: "
-							<< particleContainer->getBoundingBoxMin(0) << ", "
-							<< particleContainer->getBoundingBoxMin(1) << ", "
-							<< particleContainer->getBoundingBoxMin(2) << "\n"
-							<< "BoxMax: "
-							<< particleContainer->getBoundingBoxMax(0) << ", "
-							<< particleContainer->getBoundingBoxMax(1) << ", "
-							<< particleContainer->getBoundingBoxMax(2) << "\n"
-							<< "Particle: \n" << *iter
-							<< std::endl;
-						MARDYN_EXIT(error_message.str());
-					}
-				} 
-			}
-			particleContainer->clear();
-			particleContainer->rebuild(newMin.data(), newMax.data());
-			particleContainer->addParticles(ownMolecules);
+			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
+			// particleContainer->addParticles(emigrants); 
 		}
 	#endif
 
@@ -354,15 +327,13 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			break;
 		}
 	}
-	#ifdef MARDYN_AUTOPAS
-	{
-		if(not emigrants.empty()){
-			std::ostringstream error_message;
-			error_message << "GeneralDomainDecomposition: Invalid particles that should have been sent, are still existent. They would be lost. Aborting...\n";						  
-			MARDYN_EXIT(error_message.str());
-		}
+
+	if(not emigrants.empty()){
+		std::ostringstream error_message;
+		error_message << "GeneralDomainDecomposition: Invalid particles that should have been sent, are still existent. They would be lost. Aborting...\n";						  
+		MARDYN_EXIT(error_message.str());
 	}
-	#endif
+	
 }
 
 
