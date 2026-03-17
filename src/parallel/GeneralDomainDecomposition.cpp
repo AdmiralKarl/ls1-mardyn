@@ -231,25 +231,20 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 
 void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
 												  std::array<double, 3> newMin, std::array<double, 3> newMax) {
-	std::array<double, 3> oldBoxMin{particleContainer->getBoundingBoxMin(0), particleContainer->getBoundingBoxMin(1),
-									particleContainer->getBoundingBoxMin(2)};
-	std::array<double, 3> oldBoxMax{particleContainer->getBoundingBoxMax(0), particleContainer->getBoundingBoxMax(1),
-									particleContainer->getBoundingBoxMax(2)};
-
 	HaloRegion ownDomain{}, newDomain{};
 	for (size_t i = 0; i < 3; ++i) {
-		ownDomain.rmin[i] = oldBoxMin[i];
+		ownDomain.rmin[i] = _boxMin[i];
 		newDomain.rmin[i] = newMin[i];
-		ownDomain.rmax[i] = oldBoxMax[i];
+		ownDomain.rmax[i] = _boxMax[i];
 		newDomain.rmax[i] = newMax[i];
 		ownDomain.offset[i] = 0;
 		newDomain.offset[i] = 0;
 	}
 	Log::global_log->set_mpi_output_all();
 	Log::global_log->debug() << "migrating from"
-						<< " [" << oldBoxMin[0] << ", " << oldBoxMax[0] << "] x"
-						<< " [" << oldBoxMin[1] << ", " << oldBoxMax[1] << "] x"
-						<< " [" << oldBoxMin[2] << ", " << oldBoxMax[2] << "] " << std::endl;
+						<< " [" << _boxMin[0] << ", " << _boxMax[0] << "] x"
+						<< " [" << _boxMin[1] << ", " << _boxMax[1] << "] x"
+						<< " [" << _boxMin[2] << ", " << _boxMax[2] << "] " << std::endl;
 	Log::global_log->debug() << "to"
 						<< " [" << newMin[0] << ", " << newMax[0] << "] x"
 						<< " [" << newMin[1] << ", " << newMax[1] << "] x"
@@ -331,6 +326,12 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	if(not emigrants.empty()){
 		std::ostringstream error_message;
 		error_message << "GeneralDomainDecomposition: Invalid particles that should have been sent, are still existent. They would be lost. Aborting...\n";						  
+		MARDYN_EXIT(error_message.str());
+	}
+
+	if (not allDone) {
+		std::ostringstream error_message;
+		error_message << "A problem occurred during particle migration between old decomposition and new decomposition of the GeneralDomainDecomposition. Aborting." << std::endl;
 		MARDYN_EXIT(error_message.str());
 	}
 	
