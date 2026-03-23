@@ -23,11 +23,12 @@
 #include <sstream>
 
 
-GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain) : GeneralDomainDecomposition(interactionLength, domain, MPI_COMM_WORLD) {}
+GeneralDomainDecomposition::GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain) : GeneralDomainDecomposition(cutoffRadius, skin, domain, MPI_COMM_WORLD) {}
 
-GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain, MPI_Comm comm) : 
+GeneralDomainDecomposition::GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain, MPI_Comm comm) : 
 DomainDecompMPIBase(comm),
-_interactionLength{interactionLength},
+_cutoffRadius{cutoffRadius},
+_skin{skin},
 _domainLength{domain->getGlobalLength(0), domain->getGlobalLength(1), domain->getGlobalLength(2)},
 _gridSize({0,0,0}), 
 _coords{0} {
@@ -78,8 +79,7 @@ GeneralDomainDecomposition::~GeneralDomainDecomposition() {
 void GeneralDomainDecomposition::initializeALLLoadBalancer() {
 	Log::global_log->info() << "initializing ALL load balancer..." << std::endl;
 #ifdef ENABLE_ALLLBL
-	const std::vector<double> minimalPartitionSize = {_interactionLength, _interactionLength, _interactionLength};
-	_loadBalancer = std::make_unique<ALLLoadBalancer>(_boxMin, _boxMax, 4 /*gamma*/, this->getCommunicator(), _gridSize,  minimalPartitionSize);
+	_loadBalancer = std::make_unique<ALLLoadBalancer>(_boxMin, _boxMax, 4 /*gamma*/, this->getCommunicator(), _gridSize,  _minimalDomainSize);
 #else
 	std::ostringstream error_message;
 	error_message << "ALL load balancing library not enabled. Aborting." << std::endl;
@@ -96,10 +96,10 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 
 	DomainDecompMPIBase::readXML(xmlconfig);
 
-#ifdef MARDYN_AUTOPAS
-	Log::global_log->info() << "AutoPas only supports FS, so setting it." << std::endl;
-	setCommunicationScheme("direct-pp", "fs");
-#endif
+	#ifdef MARDYN_AUTOPAS
+		Log::global_log->info() << "AutoPas only supports FS, so setting it." << std::endl;
+		setCommunicationScheme("direct-pp", "fs");
+	#endif
 
 	xmlconfig.getNodeValue("updateFrequency", _rebuildFrequency);
 	Log::global_log->info() << "GeneralDomainDecomposition update frequency: " << _rebuildFrequency << std::endl;
@@ -118,6 +118,24 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 		initMPIGridDims();
 		xmlconfig.changecurrentnode("..");
 	}
+
+	#ifdef MARDYN_AUTOPAS
+		const double minimalDomainBoundary = _cutoffRadius;
+	#else
+		const double minimalDomainBoundary = 2 * _cutoffRadius;
+	#endif
+
+	if(xmlconfig.changecurrentnode("skinDims")) {
+		_minimalDomainSize[0] = xmlconfig.getNodeValue_int("x", 0);
+		_minimalDomainSize[1] = xmlconfig.getNodeValue_int("y", 0);
+		_minimalDomainSize[2] = xmlconfig.getNodeValue_int("z", 0);
+		xmlconfig.changecurrentnode("..");
+	} else {
+		_skin += minimalDomainBoundary;
+		_minimalDomainSize = {_skin, _skin, _skin};
+	}
+	Log::global_log->info() << "Using minimal Domain Size of (" << _minimalDomainSize[0] << ", " << _minimalDomainSize[1] << ", " << _minimalDomainSize[2] << ") for the GeneralDomainDecomposition Load Balancer." << std::endl;
+	checkMinimalDomainSize(minimalDomainBoundary);
 
 	if (xmlconfig.changecurrentnode("loadBalancer")) {
 		std::string loadBalancerString = "None";
@@ -232,7 +250,7 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
 												  std::array<double, 3> newMin, std::array<double, 3> newMax) {
 	HaloRegion ownDomain{}, newDomain{};
-	for (size_t i = 0; i < 3; ++i) {
+	for (size_t i = 0; i < DIMgeom; ++i) {
 		ownDomain.rmin[i] = _boxMin[i];
 		newDomain.rmin[i] = newMin[i];
 		ownDomain.rmax[i] = _boxMax[i];
@@ -353,4 +371,14 @@ std::tuple<std::array<double, DIMgeom>, std::array<double, DIMgeom>> GeneralDoma
 		}
 	}
 	return std::make_tuple(boxMin, boxMax);
+}
+
+void GeneralDomainDecomposition::checkMinimalDomainSize(double minimalDomainBoundary) {
+	for (int i = 0; i < DIMgeom; ++i) {
+		if (_minimalDomainSize[i] < minimalDomainBoundary or _minimalDomainSize[i] > _boxMax[i] - _boxMin[i]) {
+			std::ostringstream error_message;
+			error_message << "The specified minimal DomainSize is invalid. Aborting." << std::endl;
+			MARDYN_EXIT(error_message.str());
+		}
+	}
 }

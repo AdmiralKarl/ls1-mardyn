@@ -20,15 +20,13 @@ class GeneralDomainDecomposition : public DomainDecompMPIBase {
 public:
     /**
 	 * Constructor for the GeneralDomainDecomposition.
-	 * @param interactionLength
+	 * @param cutoffRadius
+	 * @param skin
 	 * @param domain
-	 * @param forceGrid
 	 */
-	//GeneralDomainDecomposition(double interactionLength, Domain* domain, bool forceGrid);
+	GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain);
 
-	GeneralDomainDecomposition(double interactionLength, Domain* domain);
-
-	GeneralDomainDecomposition(double interactionLength, Domain* domain, MPI_Comm comm);
+	GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain, MPI_Comm comm);
 
 	// documentation see father class (DomainDecompBase.h)
 	~GeneralDomainDecomposition() override;
@@ -125,6 +123,12 @@ private:
 	 * @param step current step of the simulation
 	 */
 	bool checkRebalancing(size_t step);
+	
+	/**
+	 * checked whether the data in _minimalDomainSize is valid
+	 * @param minimalDomainBoundary minimal DomainSize in each dimension
+	 */
+	void checkMinimalDomainSize(double minimalDomainBoundary);
 
     // variables
 	const bool debugMode = false;
@@ -133,8 +137,10 @@ private:
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;
 
-	std::array<double, 3> _domainLength;
-	double _interactionLength;
+	std::array<double, DIMgeom> _domainLength;
+	std::vector<double> _minimalDomainSize = {0., 0., 0.};
+	double _cutoffRadius;
+	double _skin;
 
 	size_t _steps{0};
 	size_t _rebuildFrequency{10000};
