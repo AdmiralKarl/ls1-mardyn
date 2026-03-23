@@ -102,13 +102,13 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	#endif
 
 	xmlconfig.getNodeValue("updateFrequency", _rebuildFrequency);
-	Log::global_log->info() << "GeneralDomainDecomposition update frequency: " << _rebuildFrequency << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: update frequency: " << _rebuildFrequency << std::endl;
 
 	xmlconfig.getNodeValue("initialPhaseTime", _initPhase);
-	Log::global_log->info() << "GeneralDomainDecomposition time for initial rebalancing phase: " << _initPhase << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: time for initial rebalancing phase: " << _initPhase << std::endl;
 
 	xmlconfig.getNodeValue("initialPhaseFrequency", _initFrequency);
-	Log::global_log->info() << "GeneralDomainDecomposition frequency for initial rebalancing phase: " << _initFrequency
+	Log::global_log->info() << "GeneralDomainDecomposition: frequency for initial rebalancing phase: " << _initFrequency
 					   << std::endl;
 
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
@@ -125,16 +125,16 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 		const double minimalDomainBoundary = 2 * _cutoffRadius;
 	#endif
 
-	if(xmlconfig.changecurrentnode("skinDims")) {
-		_minimalDomainSize[0] = xmlconfig.getNodeValue_int("x", 0);
-		_minimalDomainSize[1] = xmlconfig.getNodeValue_int("y", 0);
-		_minimalDomainSize[2] = xmlconfig.getNodeValue_int("z", 0);
+	if(xmlconfig.changecurrentnode("minimalDomainSize")) {
+		Log::global_log->info() << "GeneralDomainDecomposition: minimalDomainSize setting is overwriting skin + cutoff radius" << std::endl;
+		_minimalDomainSize[0] = xmlconfig.getNodeValue_double("x", 0);
+		_minimalDomainSize[1] = xmlconfig.getNodeValue_double("y", 0);
+		_minimalDomainSize[2] = xmlconfig.getNodeValue_double("z", 0);
 		xmlconfig.changecurrentnode("..");
 	} else {
-		_skin += minimalDomainBoundary;
-		_minimalDomainSize = {_skin, _skin, _skin};
+		_minimalDomainSize = {_skin + minimalDomainBoundary, _skin + minimalDomainBoundary, _skin + minimalDomainBoundary};
 	}
-	Log::global_log->info() << "Using minimal Domain Size of (" << _minimalDomainSize[0] << ", " << _minimalDomainSize[1] << ", " << _minimalDomainSize[2] << ") for the GeneralDomainDecomposition Load Balancer." << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: Using minimal Domain Size of (" << _minimalDomainSize[0] << ", " << _minimalDomainSize[1] << ", " << _minimalDomainSize[2] << ") for the Load Balancer." << std::endl;
 	checkMinimalDomainSize(minimalDomainBoundary);
 
 	if (xmlconfig.changecurrentnode("loadBalancer")) {
