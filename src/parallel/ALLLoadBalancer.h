@@ -18,18 +18,19 @@ public:
 
 	~ALLLoadBalancer() override = default;
 	std::tuple<std::array<double, 3>, std::array<double, 3>> rebalance(double work) override;
-	void readXML(XMLfileUnits& xmlconfig) override {
-		// nothing yet.
-	}
+	void readXML(XMLfileUnits& xmlconfig) override;
 
 	std::array<bool, 3> getCoversWholeDomain() override { return _coversWholeDomain; }
 
 private:
 	std::unique_ptr<ALL::ALL<double, double>> _all;
+	MPI_Comm _comm;
+	double _gamma;
+
 	std::array<double, 3> _localBoxMin;
 	std::array<double, 3> _localBoxMax;
 
-	std::array<double, 3> _minimalPartitionSize{};
+	std::vector<double> _minimalPartitionSize{};
 	std::array<bool, 3> _coversWholeDomain{};
 };
 #endif
