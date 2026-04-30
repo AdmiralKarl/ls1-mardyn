@@ -111,6 +111,31 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	Log::global_log->info() << "GeneralDomainDecomposition: frequency for initial rebalancing phase: " << _initFrequency
 					   << std::endl;
 
+	xmlconfig.getNodeValue("imbalanceThresholdCV", _imbalanceThresholdCV);
+	xmlconfig.getNodeValue("imbalanceThresholdMinMax", _imbalanceThresholdMinMax);
+
+	if (_imbalanceThresholdCV != 0 && _imbalanceThresholdMinMax != 0) {
+		std::ostringstream error_message;
+		error_message << "GeneralDomainDecomposition: Multiple imbalanceThresholds were detected, but only one can be supported simultaneously." << std::endl;
+		MARDYN_EXIT(error_message.str());
+	} else if (_imbalanceThresholdCV != 0) {
+		if (_imbalanceThresholdCV < 0) {
+			//Coefficient of variation cannot be less than 0
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdCV settion of " << _imbalanceThresholdCV << " is illogical . Aborting! Please select a valid option! Valid options: ALL";
+			MARDYN_EXIT(error_message.str());
+		}
+		_imbalanceThresholdMode = 1;
+	} else if (_imbalanceThresholdMinMax != 0) {
+		if (_imbalanceThresholdMinMax < 1) {
+			// max(data) / min(data) cannot be less than 1
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdMinMax settion of " << _imbalanceThresholdMinMax << " is illogical . Aborting! Please select a valid option! Valid options: ALL";
+			MARDYN_EXIT(error_message.str());
+		}
+		_imbalanceThresholdMode = 2;
+	}
+
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
 		_gridSize[0] = xmlconfig.getNodeValue_int("x", 0);
 		_gridSize[1] = xmlconfig.getNodeValue_int("y", 0);
@@ -165,14 +190,32 @@ double GeneralDomainDecomposition::getBoundingBoxMin(int dimension, Domain* /*do
 
 double GeneralDomainDecomposition::getBoundingBoxMax(int dimension, Domain* /*domain*/) { return _boxMax[dimension]; }
 
+bool GeneralDomainDecomposition::checkNeedRebalance(double lastTraversalTime) {
+	if (_imbalanceThresholdMode == 0){
+		return true; // checkNeedRebalance is disabled
+	}
+	double globalTraversalTimes[_numProcs];
+	MPI_CHECK(MPI_Allgather(&lastTraversalTime, 1, MPI_DOUBLE, globalTraversalTimes, 1, MPI_DOUBLE, _comm)); 
+	
+	if (_imbalanceThresholdMode == 1) {
+		const double value = getCV(globalTraversalTimes, _numProcs);
+		Log::global_log->info() << "Coefficient of variation: " <<  value << std::endl;
+		return value > _imbalanceThresholdCV; 
+		
+	} else {
+		const double value = getMaxdivMin(globalTraversalTimes, _numProcs);
+		Log::global_log->info() << "Max div Min: " << value << std::endl;
+		return value > _imbalanceThresholdMinMax;
+	}
+}
+
+
 bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 	return step <= _initPhase ? step % _initFrequency == 0 : step % _rebuildFrequency == 0;
 }
 
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {							
-	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
-	
 	if (_steps == 0) {
 		// ensure that there are no outer particles
 		moleculeContainer->deleteOuterParticles();
@@ -180,6 +223,14 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 		++_steps;
 		return;
+	}
+
+	bool doRebalance = checkRebalancing(_steps);
+	if (doRebalance && !forceRebalancing) {
+		doRebalance = doRebalance && checkNeedRebalance(lastTraversalTime);
+	}
+	else {
+		doRebalance = doRebalance or forceRebalancing;
 	}
 
 	if (doRebalance) {
@@ -381,4 +432,33 @@ void GeneralDomainDecomposition::checkMinimalDomainSize(double minimalDomainBoun
 			MARDYN_EXIT(error_message.str());
 		}
 	}
+}
+
+double GeneralDomainDecomposition::getCV(double* data, int size) {
+	double sum = 0;
+	for( size_t i = 0; i < size; i++ ) {
+		sum += data[i];
+	}
+	double mean = sum / size;
+
+	double stddev = 0;
+	for( size_t i = 0; i < size; i++ ) {
+		double diff = data[i] - mean;
+		stddev += diff*diff;
+	}
+	stddev /= size;
+	stddev = sqrt(stddev);
+	return stddev / mean;
+}
+
+double GeneralDomainDecomposition::getMaxdivMin(double* data, int size) {
+	double min = data[0];
+	double max = data[0];
+
+	for( size_t i = 1; i < size; i++ ) {
+		min = std::min(min, data[i]);
+		max = std::max(max, data[i]);
+	}
+
+	return max / min;
 }

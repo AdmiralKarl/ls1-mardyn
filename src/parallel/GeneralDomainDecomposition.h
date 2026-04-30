@@ -91,6 +91,23 @@ private:
     std::tuple<std::array<double, 3>, std::array<double, 3>> initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, const std::array<int, DIMgeom>& gridSize,
 	const std::array<int, DIMgeom>& gridCoords);
 	
+	/**
+	 * Checks whether it is necessary to perform a rebalance
+	 * @param lastTraversalTime
+	 */
+	bool checkNeedRebalance(double lastTraversalTime);
+	
+	/** 
+	* Return the coefficients of variation 
+	* @return coefficients of variation 
+	*/
+	double getCV(double* data, int size);
+	
+	/** 
+	* Return the Max divided Min
+	* @return Max divided Min
+	*/
+	double getMaxdivMin(double* data, int size); 
 
 	/**
 	 * Initializes communication partners
@@ -133,6 +150,10 @@ private:
     // variables
 	const bool debugMode = false;
 	bool _cartCommunicatorCreated = false; // Indicates whether a communicator with topology information has already been created.
+	
+	int _imbalanceThresholdMode{0}; // 0 == disabled, 1 == Coefficient of variation (CV), 2 == MinMax 
+	double _imbalanceThresholdCV{0};
+	double _imbalanceThresholdMinMax{0};
 
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;
