@@ -358,10 +358,11 @@ void Simulation::readXML(XMLfileUnits& xmlconfig) {
 												  << std::endl;
 							MARDYN_EXIT(error_message.str());
 						}
-						Log::global_log->info() << "Using skin = " << skin << " for the GeneralDomainDecomposition." << std::endl;
 					} else if (datastructuretype == "LinkedCells") {
 						skin = getcutoffRadius();
-						Log::global_log->info() << "Using skin = cutoffRadius for the GeneralDomainDecomposition." << std::endl;
+						if (xmlconfig.getNodeValue("skin", skin) == 0) {
+							Log::global_log->warning() << "No skin value detected. Unless skinDims is specified, the absolute minimum domain size is used" << std::endl;
+						}
 					}
 					else
 					{
@@ -379,7 +380,8 @@ void Simulation::readXML(XMLfileUnits& xmlconfig) {
 					MARDYN_EXIT(error_message.str());
 				}
 				delete _domainDecomposition;
-				_domainDecomposition = new GeneralDomainDecomposition(getcutoffRadius() + skin, _domain);
+				Log::global_log->info() << "Using skin = " << skin << " for the GeneralDomainDecomposition." << std::endl;
+				_domainDecomposition = new GeneralDomainDecomposition(getcutoffRadius(), skin, _domain);
 			} else {
 				std::ostringstream error_message;
 				error_message << "Unknown parallelisation type: " << parallelisationtype << std::endl;

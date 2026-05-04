@@ -23,11 +23,12 @@
 #include <sstream>
 
 
-GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain) : GeneralDomainDecomposition(interactionLength, domain, MPI_COMM_WORLD) {}
+GeneralDomainDecomposition::GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain) : GeneralDomainDecomposition(cutoffRadius, skin, domain, MPI_COMM_WORLD) {}
 
-GeneralDomainDecomposition::GeneralDomainDecomposition(double interactionLength, Domain* domain, MPI_Comm comm) : 
+GeneralDomainDecomposition::GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain, MPI_Comm comm) : 
 DomainDecompMPIBase(comm),
-_interactionLength{interactionLength},
+_cutoffRadius{cutoffRadius},
+_skin{skin},
 _domainLength{domain->getGlobalLength(0), domain->getGlobalLength(1), domain->getGlobalLength(2)},
 _gridSize({0,0,0}), 
 _coords{0} {
@@ -76,10 +77,9 @@ GeneralDomainDecomposition::~GeneralDomainDecomposition() {
 
 
 void GeneralDomainDecomposition::initializeALLLoadBalancer() {
-	Log::global_log->info() << "initializing ALL load balancer..." << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: initializing ALL load balancer..." << std::endl;
 #ifdef ENABLE_ALLLBL
-	const std::vector<double> minimalPartitionSize = {_interactionLength, _interactionLength, _interactionLength};
-	_loadBalancer = std::make_unique<ALLLoadBalancer>(_boxMin, _boxMax, 4 /*gamma*/, this->getCommunicator(), _gridSize,  minimalPartitionSize);
+	_loadBalancer = std::make_unique<ALLLoadBalancer>(_boxMin, _boxMax, 4 /*gamma*/, this->getCommunicator(), _gridSize,  _minimalDomainSize);
 #else
 	std::ostringstream error_message;
 	error_message << "ALL load balancing library not enabled. Aborting." << std::endl;
@@ -96,28 +96,46 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 
 	DomainDecompMPIBase::readXML(xmlconfig);
 
-#ifdef MARDYN_AUTOPAS
-	Log::global_log->info() << "AutoPas only supports FS, so setting it." << std::endl;
-	setCommunicationScheme("direct-pp", "fs");
-#endif
+	#ifdef MARDYN_AUTOPAS
+		Log::global_log->info() << "GeneralDomainDecomposition: AutoPas only supports FS, so setting it." << std::endl;
+		setCommunicationScheme("direct-pp", "fs");
+	#endif
 
 	xmlconfig.getNodeValue("updateFrequency", _rebuildFrequency);
-	Log::global_log->info() << "GeneralDomainDecomposition update frequency: " << _rebuildFrequency << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: update frequency: " << _rebuildFrequency << std::endl;
 
 	xmlconfig.getNodeValue("initialPhaseTime", _initPhase);
-	Log::global_log->info() << "GeneralDomainDecomposition time for initial rebalancing phase: " << _initPhase << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: time for initial rebalancing phase: " << _initPhase << std::endl;
 
 	xmlconfig.getNodeValue("initialPhaseFrequency", _initFrequency);
-	Log::global_log->info() << "GeneralDomainDecomposition frequency for initial rebalancing phase: " << _initFrequency
+	Log::global_log->info() << "GeneralDomainDecomposition: frequency for initial rebalancing phase: " << _initFrequency
 					   << std::endl;
 
-	xmlconfig.getNodeValue("smoothingLength", _smootherLen);
-	Log::global_log->info() << "GeneralDomainDecomposition length of smoothing for rebalancing time: " << _smootherLen << std::endl;
-	if (_smootherLen > 0) {
-		_smootherVector.resize(_smootherLen);
-		std::fill(_smootherVector.begin(), _smootherVector.end(), 0);
-	} else {
-		_smootherLen = 0;
+	xmlconfig.getNodeValue("imbalanceThresholdCV", _imbalanceThresholdCV);
+	xmlconfig.getNodeValue("imbalanceThresholdMinMax", _imbalanceThresholdMinMax);
+
+	if (_imbalanceThresholdCV != 0 && _imbalanceThresholdMinMax != 0) {
+		std::ostringstream error_message;
+		error_message << "GeneralDomainDecomposition: Multiple imbalanceThresholds were detected, but only one can be supported simultaneously." << std::endl;
+		MARDYN_EXIT(error_message.str());
+	} else if (_imbalanceThresholdCV != 0) {
+		if (_imbalanceThresholdCV < 0) {
+			//Coefficient of variation cannot be less than 0
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdCV settion of " << _imbalanceThresholdCV << " is illogical (cannot be less than 0). Aborting! Please select a valid option!";
+			MARDYN_EXIT(error_message.str());
+		}
+		_imbalanceThresholdMode = 1;
+		Log::global_log->info() << "GeneralDomainDecomposition: imbalance Threshold Coefficient of variation is active with the value: " << _imbalanceThresholdCV << std::endl;
+	} else if (_imbalanceThresholdMinMax != 0) {
+		if (_imbalanceThresholdMinMax < 1) {
+			// max(data) / min(data) cannot be less than 1
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdMinMax settion of " << _imbalanceThresholdMinMax << " is illogical (cannot be less than 1). Aborting! Please select a valid option!";
+			MARDYN_EXIT(error_message.str());
+		}
+		_imbalanceThresholdMode = 2;
+		Log::global_log->info() << "GeneralDomainDecomposition: imbalance Threshold MinMax is active with the value: " << _imbalanceThresholdMinMax << std::endl;
 	}
 
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
@@ -127,6 +145,24 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 		initMPIGridDims();
 		xmlconfig.changecurrentnode("..");
 	}
+
+	#ifdef MARDYN_AUTOPAS
+		const double minimalDomainBoundary = _cutoffRadius;
+	#else
+		const double minimalDomainBoundary = 2 * _cutoffRadius;
+	#endif
+
+	if(xmlconfig.changecurrentnode("minimalDomainSize")) {
+		Log::global_log->info() << "GeneralDomainDecomposition: minimalDomainSize setting is overwriting skin + cutoff radius" << std::endl;
+		_minimalDomainSize[0] = xmlconfig.getNodeValue_double("x", 0);
+		_minimalDomainSize[1] = xmlconfig.getNodeValue_double("y", 0);
+		_minimalDomainSize[2] = xmlconfig.getNodeValue_double("z", 0);
+		xmlconfig.changecurrentnode("..");
+	} else {
+		_minimalDomainSize = {_skin + minimalDomainBoundary, _skin + minimalDomainBoundary, _skin + minimalDomainBoundary};
+	}
+	Log::global_log->info() << "GeneralDomainDecomposition: Using minimal Domain Size of (" << _minimalDomainSize[0] << ", " << _minimalDomainSize[1] << ", " << _minimalDomainSize[2] << ") for the Load Balancer." << std::endl;
+	checkMinimalDomainSize(minimalDomainBoundary);
 
 	if (xmlconfig.changecurrentnode("loadBalancer")) {
 		std::string loadBalancerString = "None";
@@ -156,17 +192,33 @@ double GeneralDomainDecomposition::getBoundingBoxMin(int dimension, Domain* /*do
 
 double GeneralDomainDecomposition::getBoundingBoxMax(int dimension, Domain* /*domain*/) { return _boxMax[dimension]; }
 
+bool GeneralDomainDecomposition::checkNeedRebalance(double lastTraversalTime) {
+	if (_imbalanceThresholdMode == 0){
+		return true; // checkNeedRebalance is disabled
+	}
+	double globalTraversalTimes[_numProcs];
+	MPI_CHECK(MPI_Allgather(&lastTraversalTime, 1, MPI_DOUBLE, globalTraversalTimes, 1, MPI_DOUBLE, _comm)); 
+	
+	if (_imbalanceThresholdMode == 1) {
+		const double value = getCV(globalTraversalTimes, _numProcs);
+		Log::global_log->debug() << "GeneralDomainDecomposition: Coefficient of variation: " <<  value << std::endl;
+		return value > _imbalanceThresholdCV; 
+		
+	} else {
+		const double value = getMaxdivMin(globalTraversalTimes, _numProcs);
+		Log::global_log->debug() << "GeneralDomainDecomposition: Max div Min: " << value << std::endl;
+		return value > _imbalanceThresholdMinMax;
+	}
+}
+
+
 bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 	return step <= _initPhase ? step % _initFrequency == 0 : step % _rebuildFrequency == 0;
 }
 
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
-													ParticleContainer* moleculeContainer, Domain* domain) {							
-	const bool doRebalance = checkRebalancing(_steps) or forceRebalancing;
-	const double smoothLastTraversalTime = smoothingLastTraversalTime(_steps, lastTraversalTime);
-	
+													ParticleContainer* moleculeContainer, Domain* domain) {								
 	_timeTestingData.push_back(lastTraversalTime);
-	_smootherTestingData.push_back(smoothLastTraversalTime);
 
 	if (_steps == 0) {
 		_rebuildstepTestingData.push_back(0);
@@ -189,19 +241,29 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		return;
 	}
 
+	const bool doRebalance = checkRebalancing(_steps) || forceRebalancing;
 	if (doRebalance) {
-		rebalance(smoothLastTraversalTime, moleculeContainer, domain);
+		const bool needRebalance = checkNeedRebalance(lastTraversalTime);
+		if (needRebalance || forceRebalancing) {
+			_rebuildstepTestingData.push_back(_steps);
 
-		_rebuildstepTestingData.push_back(_steps);
+			_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
+			_XMaxTestingData.push_back(getBoundingBoxMax(0, domain));
+			
+			_YMinTestingData.push_back(getBoundingBoxMin(1, domain));
+			_YMaxTestingData.push_back(getBoundingBoxMax(1, domain));
+			
+			_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
+			_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
 
-		_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
-		_XMaxTestingData.push_back(getBoundingBoxMax(0, domain));
+			rebalance(lastTraversalTime, moleculeContainer, domain);
+			_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+			_boundaryHandler.updateGlobalWallLookupTable();
+		}
+		else {
+			Log::global_log->info() << "GeneralDomainDecomposition: Skiping rebalancing" << std::endl;
+		}
 		
-		_YMinTestingData.push_back(getBoundingBoxMin(1, domain));
-		_YMaxTestingData.push_back(getBoundingBoxMax(1, domain));
-		
-		_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
-		_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -216,10 +278,8 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 			DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 		}
 	}
-	_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
-	_boundaryHandler.updateGlobalWallLookupTable();
 	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
-	++_steps;
+	++_steps;		
 }
 
 void GeneralDomainDecomposition::initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer) { 
@@ -240,12 +300,12 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	moleculeContainer->deleteOuterParticles();
 
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->debug() << "work:" << lastTraversalTime << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: work:" << lastTraversalTime << std::endl;
 	Log::global_log->set_mpi_output_root(0);
 	auto [newBoxMin, newBoxMax] = _loadBalancer->rebalance(lastTraversalTime);
 	
 																	
-	Log::global_log->debug() << "migrating particles" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
 
 	#ifndef MARDYN_AUTOPAS
@@ -255,9 +315,9 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	_boxMin = newBoxMin;
 	_boxMax = newBoxMax;
 
-	Log::global_log->debug() << "updating communication partners" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: updating communication partners" << std::endl;
 	initCommunicationPartners(domain, moleculeContainer);
-	Log::global_log->debug() << "rebalancing finished" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: rebalancing finished" << std::endl;
 
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
@@ -268,33 +328,38 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 
 void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
 												  std::array<double, 3> newMin, std::array<double, 3> newMax) {
-	std::array<double, 3> oldBoxMin{particleContainer->getBoundingBoxMin(0), particleContainer->getBoundingBoxMin(1),
-									particleContainer->getBoundingBoxMin(2)};
-	std::array<double, 3> oldBoxMax{particleContainer->getBoundingBoxMax(0), particleContainer->getBoundingBoxMax(1),
-									particleContainer->getBoundingBoxMax(2)};
-
 	HaloRegion ownDomain{}, newDomain{};
-	for (size_t i = 0; i < 3; ++i) {
-		ownDomain.rmin[i] = oldBoxMin[i];
+	for (size_t i = 0; i < DIMgeom; ++i) {
+		ownDomain.rmin[i] = _boxMin[i];
 		newDomain.rmin[i] = newMin[i];
-		ownDomain.rmax[i] = oldBoxMax[i];
+		ownDomain.rmax[i] = _boxMax[i];
 		newDomain.rmax[i] = newMax[i];
 		ownDomain.offset[i] = 0;
 		newDomain.offset[i] = 0;
 	}
-
+	Log::global_log->set_mpi_output_all();
+	Log::global_log->debug() << "GeneralDomainDecomposition: migrating from"
+						<< " [" << _boxMin[0] << ", " << _boxMax[0] << "] x"
+						<< " [" << _boxMin[1] << ", " << _boxMax[1] << "] x"
+						<< " [" << _boxMin[2] << ", " << _boxMax[2] << "] " << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: to"
+						<< " [" << newMin[0] << ", " << newMax[0] << "] x"
+						<< " [" << newMin[1] << ", " << newMax[1] << "] x"
+						<< " [" << newMin[2] << ", " << newMax[2] << "]." << std::endl;
+	Log::global_log->set_mpi_output_root(0);
 	std::vector<HaloRegion> desiredDomain{newDomain};
 	std::vector<CommunicationPartner> sendNeighbors{}, recvNeighbors{};
+	std::vector<Molecule> emigrants;
 
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
-
-	#ifdef does_not_exist
+	#if false
 		{
-			std::vector<Molecule> emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
+			//TODO: In rare cases, the code crashes when using Autopass. This can be reproduced by setting the load balancing input to the process rank. 
+			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			for (auto& sender : sendNeighbors) {
 				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, emigrants,
-								true , true, false);
+								true , false);
 			}
 		}
 	#else
@@ -302,36 +367,11 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			std::vector<Molecule> dummy;
 			for (auto& sender : sendNeighbors) {
 				sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
-								false /*don't use invalid particles*/, true /*do halo position change*/,
+								false /*don't use invalid particles*/, false /*do halo position change*/,
 								true /*removeFromContainer*/);
 			}
-
-			std::vector<Molecule> ownMolecules{};
-			ownMolecules.reserve(particleContainer->getNumberOfParticles());
-			for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
-				ownMolecules.push_back(*iter);
-				if(debugMode){
-					if (not iter->inBox(newMin.data(), newMax.data())) {
-						std::ostringstream error_message;
-						error_message
-							<< "Particle still in domain that should have been migrated."
-							<< "BoxMin: "
-							<< particleContainer->getBoundingBoxMin(0) << ", "
-							<< particleContainer->getBoundingBoxMin(1) << ", "
-							<< particleContainer->getBoundingBoxMin(2) << "\n"
-							<< "BoxMax: "
-							<< particleContainer->getBoundingBoxMax(0) << ", "
-							<< particleContainer->getBoundingBoxMax(1) << ", "
-							<< particleContainer->getBoundingBoxMax(2) << "\n"
-							<< "Particle: \n" << *iter
-							<< std::endl;
-						MARDYN_EXIT(error_message.str());
-					}
-				} 
-			}
-			particleContainer->clear();
-			particleContainer->rebuild(newMin.data(), newMax.data());
-			particleContainer->addParticles(ownMolecules);
+			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
+			// particleContainer->addParticles(emigrants); 
 		}
 	#endif
 
@@ -379,6 +419,19 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			break;
 		}
 	}
+
+	if(not emigrants.empty()){
+		std::ostringstream error_message;
+		error_message << "GeneralDomainDecomposition: Invalid particles that should have been sent, are still existent. They would be lost. Aborting...\n";						  
+		MARDYN_EXIT(error_message.str());
+	}
+
+	if (not allDone) {
+		std::ostringstream error_message;
+		error_message << "A problem occurred during particle migration between old decomposition and new decomposition of the GeneralDomainDecomposition. Aborting." << std::endl;
+		MARDYN_EXIT(error_message.str());
+	}
+	
 }
 
 
@@ -399,17 +452,41 @@ std::tuple<std::array<double, DIMgeom>, std::array<double, DIMgeom>> GeneralDoma
 	return std::make_tuple(boxMin, boxMax);
 }
 
-double GeneralDomainDecomposition::smoothingLastTraversalTime(size_t step, double lastTraversalTime) {
-	if (_smootherLen == 0) {
-		return lastTraversalTime;
+void GeneralDomainDecomposition::checkMinimalDomainSize(double minimalDomainBoundary) {
+	for (int i = 0; i < DIMgeom; ++i) {
+		if (_minimalDomainSize[i] < minimalDomainBoundary or _minimalDomainSize[i] > _boxMax[i] - _boxMin[i]) {
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: The specified minimal DomainSize is invalid. Aborting." << std::endl;
+			MARDYN_EXIT(error_message.str());
+		}
+	}
+}
+
+double GeneralDomainDecomposition::getCV(double* data, const int size) {
+	double sum = 0;
+	for( size_t i = 0; i < size; i++ ) {
+		sum += data[i];
+	}
+	const double mean = sum / size;
+
+	double stddev = 0;
+	for( size_t i = 0; i < size; i++ ) {
+		double diff = data[i] - mean;
+		stddev += diff*diff;
+	}
+	stddev /= size;
+	stddev = sqrt(stddev);
+	return stddev / mean;
+}
+
+double GeneralDomainDecomposition::getMaxdivMin(double* data, const int size) {
+	double min = data[0];
+	double max = data[0];
+
+	for( size_t i = 1; i < size; i++ ) {
+		min = std::min(min, data[i]);
+		max = std::max(max, data[i]);
 	}
 
-	auto index = step % _smootherLen;
-	_smootherVector[index] = lastTraversalTime;
-	if (step < _smootherLen - 1) {
-		return lastTraversalTime;
-	}
-
-    const double sum = reduce(_smootherVector.begin(), _smootherVector.end(), 0.0);
-	return sum / _smootherLen;
+	return max / min;
 }

@@ -329,6 +329,14 @@ private:
 	 */
 	void deleteParticlesOutsideBox(double boxMin[3], double boxMax[3]);
 
+	/**
+	 * @brief delete particles which lie outside a cubic region and returns them
+	 * @param boxMin lower left front corner
+	 * @param boxMax upper right back corner
+	 * @return the particles outside the cubic region
+	 */
+	std::vector<Molecule> removeAndReturnParticlesOutsideBox(double boxMin[3], double boxMax[3]);
+
 	void getCellIndicesOfRegion(const double startRegion[3], const double endRegion[3], unsigned int &startRegionCellIndex, unsigned int &endRegionCellIndex);
 
 	//####################################

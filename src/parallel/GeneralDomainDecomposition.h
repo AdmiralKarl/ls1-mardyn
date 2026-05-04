@@ -20,15 +20,13 @@ class GeneralDomainDecomposition : public DomainDecompMPIBase {
 public:
     /**
 	 * Constructor for the GeneralDomainDecomposition.
-	 * @param interactionLength
+	 * @param cutoffRadius
+	 * @param skin
 	 * @param domain
-	 * @param forceGrid
 	 */
-	//GeneralDomainDecomposition(double interactionLength, Domain* domain, bool forceGrid);
+	GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain);
 
-	GeneralDomainDecomposition(double interactionLength, Domain* domain);
-
-	GeneralDomainDecomposition(double interactionLength, Domain* domain, MPI_Comm comm);
+	GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain, MPI_Comm comm);
 
 	// documentation see father class (DomainDecompBase.h)
 	~GeneralDomainDecomposition() override;
@@ -93,6 +91,23 @@ private:
     std::tuple<std::array<double, 3>, std::array<double, 3>> initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, const std::array<int, DIMgeom>& gridSize,
 	const std::array<int, DIMgeom>& gridCoords);
 	
+	/**
+	 * Checks whether it is necessary to perform a rebalance
+	 * @param lastTraversalTime
+	 */
+	bool checkNeedRebalance(double lastTraversalTime);
+	
+	/** 
+	* Return the coefficients of variation 
+	* @return coefficients of variation 
+	*/
+	double getCV(double* data, const int size);
+	
+	/** 
+	* Return the Max divided Min
+	* @return Max divided Min
+	*/
+	double getMaxdivMin(double* data, const int size); 
 
 	/**
 	 * Initializes communication partners
@@ -133,16 +148,28 @@ private:
 	 * @param step current step of the simulation
 	 */
 	bool checkRebalancing(size_t step);
+	
+	/**
+	 * checked whether the data in _minimalDomainSize is valid
+	 * @param minimalDomainBoundary minimal DomainSize in each dimension
+	 */
+	void checkMinimalDomainSize(double minimalDomainBoundary);
 
     // variables
 	const bool debugMode = false;
 	bool _cartCommunicatorCreated = false; // Indicates whether a communicator with topology information has already been created.
+	
+	int _imbalanceThresholdMode{0}; // 0 == disabled, 1 == Coefficient of variation (CV), 2 == MinMax 
+	double _imbalanceThresholdCV{0};
+	double _imbalanceThresholdMinMax{0};
 
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;
 
-	std::array<double, 3> _domainLength;
-	double _interactionLength;
+	std::array<double, DIMgeom> _domainLength;
+	std::vector<double> _minimalDomainSize = {0., 0., 0.};
+	double _cutoffRadius;
+	double _skin;
 
 	size_t _steps{0};
 	size_t _rebuildFrequency{10000};
