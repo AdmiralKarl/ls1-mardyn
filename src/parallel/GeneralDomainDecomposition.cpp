@@ -245,6 +245,10 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 	if (doRebalance) {
 		const bool needRebalance = checkNeedRebalance(lastTraversalTime);
 		if (needRebalance || forceRebalancing) {
+			rebalance(lastTraversalTime, moleculeContainer, domain);
+			_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+			_boundaryHandler.updateGlobalWallLookupTable();
+
 			_rebuildstepTestingData.push_back(_steps);
 
 			_XMinTestingData.push_back(getBoundingBoxMin(0, domain));
@@ -255,10 +259,6 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 			
 			_ZMinTestingData.push_back(getBoundingBoxMin(2, domain));
 			_ZMaxTestingData.push_back(getBoundingBoxMax(2, domain));
-
-			rebalance(lastTraversalTime, moleculeContainer, domain);
-			_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
-			_boundaryHandler.updateGlobalWallLookupTable();
 		}
 		else {
 			Log::global_log->info() << "GeneralDomainDecomposition: Skiping rebalancing" << std::endl;
@@ -278,7 +278,7 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 			DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 		}
 	}
-	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
+	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles(ParticleIterator::ONLY_INNER_AND_BOUNDARY));
 	++_steps;		
 }
 

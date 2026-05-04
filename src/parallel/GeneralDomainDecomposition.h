@@ -125,14 +125,6 @@ private:
 	void rebalance(double lastTraversalTime, ParticleContainer* moleculeContainer, Domain* domain);
 	
 	/**
-	 * smooths lastTraversalTime with the last _smootherLen values
-	 * @param step current step of the simulation 
-	 * @param lastTraversalTime time of last calculation
-	 * @return smooth lastTraversalTime
-	 */
-	double smoothingLastTraversalTime(size_t step, double lastTraversalTime);
-
-	/**
 	 * Exchange the particles, s.t., particles are withing the particleContainer of the process they belong to.
 	 * This function will rebuild the particleContainer.
 	 * @param domain
@@ -173,9 +165,6 @@ private:
 
 	size_t _steps{0};
 	size_t _rebuildFrequency{10000};
-	
-	size_t _smootherLen{0};
-	std::vector<double> _smootherVector;
 	
 	size_t _initPhase{0};
 	size_t _initFrequency{500};
