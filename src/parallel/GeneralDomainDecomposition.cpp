@@ -77,7 +77,7 @@ GeneralDomainDecomposition::~GeneralDomainDecomposition() {
 
 
 void GeneralDomainDecomposition::initializeALLLoadBalancer() {
-	Log::global_log->info() << "initializing ALL load balancer..." << std::endl;
+	Log::global_log->info() << "GeneralDomainDecomposition: initializing ALL load balancer..." << std::endl;
 #ifdef ENABLE_ALLLBL
 	_loadBalancer = std::make_unique<ALLLoadBalancer>(_boxMin, _boxMax, 4 /*gamma*/, this->getCommunicator(), _gridSize,  _minimalDomainSize);
 #else
@@ -97,7 +97,7 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 	DomainDecompMPIBase::readXML(xmlconfig);
 
 	#ifdef MARDYN_AUTOPAS
-		Log::global_log->info() << "AutoPas only supports FS, so setting it." << std::endl;
+		Log::global_log->info() << "GeneralDomainDecomposition: AutoPas only supports FS, so setting it." << std::endl;
 		setCommunicationScheme("direct-pp", "fs");
 	#endif
 
@@ -122,18 +122,20 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 		if (_imbalanceThresholdCV < 0) {
 			//Coefficient of variation cannot be less than 0
 			std::ostringstream error_message;
-			error_message << "GeneralDomainDecomposition: imbalanceThresholdCV settion of " << _imbalanceThresholdCV << " is illogical . Aborting! Please select a valid option! Valid options: ALL";
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdCV settion of " << _imbalanceThresholdCV << " is illogical (cannot be less than 0). Aborting! Please select a valid option!";
 			MARDYN_EXIT(error_message.str());
 		}
 		_imbalanceThresholdMode = 1;
+		Log::global_log->info() << "GeneralDomainDecomposition: imbalance Threshold Coefficient of variation is active with the value: " << _imbalanceThresholdCV << std::endl;
 	} else if (_imbalanceThresholdMinMax != 0) {
 		if (_imbalanceThresholdMinMax < 1) {
 			// max(data) / min(data) cannot be less than 1
 			std::ostringstream error_message;
-			error_message << "GeneralDomainDecomposition: imbalanceThresholdMinMax settion of " << _imbalanceThresholdMinMax << " is illogical . Aborting! Please select a valid option! Valid options: ALL";
+			error_message << "GeneralDomainDecomposition: imbalanceThresholdMinMax settion of " << _imbalanceThresholdMinMax << " is illogical (cannot be less than 1). Aborting! Please select a valid option!";
 			MARDYN_EXIT(error_message.str());
 		}
 		_imbalanceThresholdMode = 2;
+		Log::global_log->info() << "GeneralDomainDecomposition: imbalance Threshold MinMax is active with the value: " << _imbalanceThresholdMinMax << std::endl;
 	}
 
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
@@ -199,12 +201,12 @@ bool GeneralDomainDecomposition::checkNeedRebalance(double lastTraversalTime) {
 	
 	if (_imbalanceThresholdMode == 1) {
 		const double value = getCV(globalTraversalTimes, _numProcs);
-		Log::global_log->info() << "Coefficient of variation: " <<  value << std::endl;
+		Log::global_log->debug() << "GeneralDomainDecomposition: Coefficient of variation: " <<  value << std::endl;
 		return value > _imbalanceThresholdCV; 
 		
 	} else {
 		const double value = getMaxdivMin(globalTraversalTimes, _numProcs);
-		Log::global_log->info() << "Max div Min: " << value << std::endl;
+		Log::global_log->debug() << "GeneralDomainDecomposition: Max div Min: " << value << std::endl;
 		return value > _imbalanceThresholdMinMax;
 	}
 }
@@ -225,18 +227,18 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		return;
 	}
 
-	bool doRebalance = checkRebalancing(_steps);
-	if (doRebalance && !forceRebalancing) {
-		doRebalance = doRebalance && checkNeedRebalance(lastTraversalTime);
-	}
-	else {
-		doRebalance = doRebalance or forceRebalancing;
-	}
-
+	const bool doRebalance = checkRebalancing(_steps) || forceRebalancing;
 	if (doRebalance) {
-		rebalance(lastTraversalTime, moleculeContainer, domain);
-		_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
-		_boundaryHandler.updateGlobalWallLookupTable();
+		const bool needRebalance = checkNeedRebalance(lastTraversalTime);
+		if (needRebalance || forceRebalancing) {
+			rebalance(lastTraversalTime, moleculeContainer, domain);
+			_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+			_boundaryHandler.updateGlobalWallLookupTable();
+		}
+		else {
+			Log::global_log->info() << "GeneralDomainDecomposition: Skiping rebalancing" << std::endl;
+		}
+		
 	} else {
 		if (sendLeavingWithCopies()) {
 			Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving and Halos." << std::endl;
@@ -272,12 +274,12 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	moleculeContainer->deleteOuterParticles();
 
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->debug() << "work:" << lastTraversalTime << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: work:" << lastTraversalTime << std::endl;
 	Log::global_log->set_mpi_output_root(0);
 	auto [newBoxMin, newBoxMax] = _loadBalancer->rebalance(lastTraversalTime);
 	
 																	
-	Log::global_log->debug() << "migrating particles" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
 
 	#ifndef MARDYN_AUTOPAS
@@ -287,9 +289,9 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	_boxMin = newBoxMin;
 	_boxMax = newBoxMax;
 
-	Log::global_log->debug() << "updating communication partners" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: updating communication partners" << std::endl;
 	initCommunicationPartners(domain, moleculeContainer);
-	Log::global_log->debug() << "rebalancing finished" << std::endl;
+	Log::global_log->debug() << "GeneralDomainDecomposition: rebalancing finished" << std::endl;
 
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
@@ -310,11 +312,11 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 		newDomain.offset[i] = 0;
 	}
 	Log::global_log->set_mpi_output_all();
-	Log::global_log->debug() << "migrating from"
+	Log::global_log->debug() << "GeneralDomainDecomposition: migrating from"
 						<< " [" << _boxMin[0] << ", " << _boxMax[0] << "] x"
 						<< " [" << _boxMin[1] << ", " << _boxMax[1] << "] x"
 						<< " [" << _boxMin[2] << ", " << _boxMax[2] << "] " << std::endl;
-	Log::global_log->debug() << "to"
+	Log::global_log->debug() << "GeneralDomainDecomposition: to"
 						<< " [" << newMin[0] << ", " << newMax[0] << "] x"
 						<< " [" << newMin[1] << ", " << newMax[1] << "] x"
 						<< " [" << newMin[2] << ", " << newMax[2] << "]." << std::endl;
@@ -428,18 +430,18 @@ void GeneralDomainDecomposition::checkMinimalDomainSize(double minimalDomainBoun
 	for (int i = 0; i < DIMgeom; ++i) {
 		if (_minimalDomainSize[i] < minimalDomainBoundary or _minimalDomainSize[i] > _boxMax[i] - _boxMin[i]) {
 			std::ostringstream error_message;
-			error_message << "The specified minimal DomainSize is invalid. Aborting." << std::endl;
+			error_message << "GeneralDomainDecomposition: The specified minimal DomainSize is invalid. Aborting." << std::endl;
 			MARDYN_EXIT(error_message.str());
 		}
 	}
 }
 
-double GeneralDomainDecomposition::getCV(double* data, int size) {
+double GeneralDomainDecomposition::getCV(double* data, const int size) {
 	double sum = 0;
 	for( size_t i = 0; i < size; i++ ) {
 		sum += data[i];
 	}
-	double mean = sum / size;
+	const double mean = sum / size;
 
 	double stddev = 0;
 	for( size_t i = 0; i < size; i++ ) {
@@ -451,7 +453,7 @@ double GeneralDomainDecomposition::getCV(double* data, int size) {
 	return stddev / mean;
 }
 
-double GeneralDomainDecomposition::getMaxdivMin(double* data, int size) {
+double GeneralDomainDecomposition::getMaxdivMin(double* data, const int size) {
 	double min = data[0];
 	double max = data[0];
 

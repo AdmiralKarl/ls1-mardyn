@@ -101,13 +101,13 @@ private:
 	* Return the coefficients of variation 
 	* @return coefficients of variation 
 	*/
-	double getCV(double* data, int size);
+	double getCV(double* data, const int size);
 	
 	/** 
 	* Return the Max divided Min
 	* @return Max divided Min
 	*/
-	double getMaxdivMin(double* data, int size); 
+	double getMaxdivMin(double* data, const int size); 
 
 	/**
 	 * Initializes communication partners
