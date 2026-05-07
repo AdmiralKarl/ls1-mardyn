@@ -377,6 +377,7 @@ void DomainDecompMPIBase::TESTINGDATAOUTPUT(){
 	std::ostringstream numberparticles_message = TESTINGDATAOUTPUTFORMATER(_numberParticlesTestingData);
 	std::ostringstream time_message = TESTINGDATAOUTPUTFORMATER(_timeTestingData);
 	std::ostringstream smoother_message = TESTINGDATAOUTPUTFORMATER(_smootherTestingData);
+	std::ostringstream domainDecomp_message = TESTINGDATAOUTPUTFORMATER(_domainDecompTestingData);
 
 	std::ostringstream rebuildstep_message = TESTINGDATAOUTPUTFORMATER(_rebuildstepTestingData);
 	std::ostringstream XMin_message = TESTINGDATAOUTPUTFORMATER(_XMinTestingData);
@@ -390,6 +391,7 @@ void DomainDecompMPIBase::TESTINGDATAOUTPUT(){
 	for (int r = 0; r < _numProcs; r++) {
 		if (r == _rank){
 			Log::global_log->info() << "DATAOUTFULL>numberparticles:" << numberparticles_message.str() << std::endl;
+			Log::global_log->info() << "DATAOUTFULL>domainDecomp:" << domainDecomp_message.str() << std::endl;
 			Log::global_log->info() << "DATAOUTFULL>time:" << time_message.str() << std::endl;
 			Log::global_log->info() << "DATAOUTFULL>timesmooth:" << smoother_message.str() << std::endl;
 			Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << std::endl;

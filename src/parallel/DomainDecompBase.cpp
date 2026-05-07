@@ -680,6 +680,7 @@ void DomainDecompBase::TESTINGDATAOUTPUT(){
 	std::ostringstream numberparticles_message = TESTINGDATAOUTPUTFORMATER(_numberParticlesTestingData);
 	std::ostringstream time_message = TESTINGDATAOUTPUTFORMATER(_timeTestingData);
 	std::ostringstream smoother_message = TESTINGDATAOUTPUTFORMATER(_smootherTestingData);
+	std::ostringstream domainDecomp_message = TESTINGDATAOUTPUTFORMATER(_domainDecompTestingData);
 
 
 	std::ostringstream rebuildstep_message = TESTINGDATAOUTPUTFORMATER(_rebuildstepTestingData);
@@ -691,6 +692,7 @@ void DomainDecompBase::TESTINGDATAOUTPUT(){
 	std::ostringstream ZMax_message = TESTINGDATAOUTPUTFORMATER(_ZMaxTestingData);
 
 	Log::global_log->info() << "DATAOUTFULL>numberparticles:" << numberparticles_message.str() << std::endl;
+	Log::global_log->info() << "DATAOUTFULL>domainDecomp:" << domainDecomp_message.str() << std::endl;
 	Log::global_log->info() << "DATAOUTFULL>time:" << time_message.str() << std::endl;
 	Log::global_log->info() << "DATAOUTFULL>timesmooth:" << smoother_message.str() << std::endl;
 	Log::global_log->info() << "DATAOUTFULL>rebuildsetp:" << rebuildstep_message.str() << std::endl;

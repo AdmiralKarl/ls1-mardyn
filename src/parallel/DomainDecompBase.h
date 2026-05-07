@@ -409,6 +409,7 @@ protected:
 	std::vector<double> _timeTestingData;
 	std::vector<unsigned long> _numberParticlesTestingData;
 	std::vector<double> _smootherTestingData;
+	std::vector<double> _domainDecompTestingData;
 
 	std::vector<unsigned long> _rebuildstepTestingData;
 

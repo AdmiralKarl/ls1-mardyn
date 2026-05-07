@@ -219,6 +219,7 @@ bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bool forceRebalancing,
 													ParticleContainer* moleculeContainer, Domain* domain) {								
 	_timeTestingData.push_back(lastTraversalTime);
+	const double start = MPI_Wtime();
 
 	if (_steps == 0) {
 		_rebuildstepTestingData.push_back(0);
@@ -236,7 +237,7 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		initCommunicationPartners(domain, moleculeContainer);
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 
-		_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
+		_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles(ParticleIterator::ONLY_INNER_AND_BOUNDARY));
 		++_steps;
 		return;
 	}
@@ -279,7 +280,9 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		}
 	}
 	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles(ParticleIterator::ONLY_INNER_AND_BOUNDARY));
-	++_steps;		
+	++_steps;
+	const double stop  = MPI_Wtime();
+	_domainDecompTestingData.push_back(stop - start);		
 }
 
 void GeneralDomainDecomposition::initCommunicationPartners(Domain* domain, ParticleContainer* moleculeContainer) { 

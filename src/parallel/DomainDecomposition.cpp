@@ -101,6 +101,7 @@ void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*fo
 		Domain* domain) {
 	
 	_timeTestingData.push_back(lastTraversalTime);
+	const double start = MPI_Wtime();
 
 	if (_steps == 0) {
 		_rebuildstepTestingData.push_back(0);
@@ -126,8 +127,10 @@ void DomainDecomposition::balanceAndExchange(double lastTraversalTime, bool /*fo
 		Log::global_log->debug() << "DD: Sending Halos." << std::endl;
 		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
 	}
-	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles());
+	_numberParticlesTestingData.push_back(moleculeContainer->getNumberOfParticles(ParticleIterator::ONLY_INNER_AND_BOUNDARY));
 	++_steps;
+	const double stop  = MPI_Wtime();
+	_domainDecompTestingData.push_back(stop - start);
 }
 
 void DomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
