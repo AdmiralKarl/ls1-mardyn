@@ -365,7 +365,7 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 								true , false);
 			}
 		}
-	#else
+	#elif false
 		{
 			std::vector<Molecule> dummy;
 			for (auto& sender : sendNeighbors) {
@@ -376,6 +376,24 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			// particleContainer->addParticles(emigrants); 
 		}
+	#else
+	{
+		std::vector<Molecule> dummy;
+		for (auto& sender : sendNeighbors) {
+			sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
+							false /*don't use invalid particles*/, true /*do halo position change*/,
+							true /*removeFromContainer*/);
+		}
+
+		std::vector<Molecule> ownMolecules{};
+		ownMolecules.reserve(particleContainer->getNumberOfParticles());
+		for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
+			ownMolecules.push_back(*iter);
+		}
+		particleContainer->clear();
+		particleContainer->rebuild(newMin.data(), newMax.data());
+		particleContainer->addParticles(ownMolecules);
+	}
 	#endif
 
 	bool allDone = false;
