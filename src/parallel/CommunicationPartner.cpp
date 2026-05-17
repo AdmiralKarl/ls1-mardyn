@@ -149,7 +149,7 @@ void CommunicationPartner::initSend(ParticleContainer* moleculeContainer, const 
 			Log::global_log->debug() << "sending halo and boundary particles together" << std::endl;
 			// first leaving particles:
 			for (unsigned int p = 0; p < numHaloInfo; p++) {
-				if (mightUseInvalidParticles) {
+				if (moleculeContainer->isInvalidParticleReturner() and mightUseInvalidParticles) {
 					collectLeavingMoleculesFromInvalidParticles(invalidParticles, _haloInfo[p]._leavingLow,
 																_haloInfo[p]._leavingHigh, _haloInfo[p]._shift);
 				} else {
@@ -168,7 +168,7 @@ void CommunicationPartner::initSend(ParticleContainer* moleculeContainer, const 
 		case MessageType::LEAVING_ONLY: {
 			Log::global_log->debug() << "sending leaving particles only" << std::endl;
 			for(unsigned int p = 0; p < numHaloInfo; p++){
-				if (mightUseInvalidParticles) {
+				if (moleculeContainer->isInvalidParticleReturner() and mightUseInvalidParticles) {
 					collectLeavingMoleculesFromInvalidParticles(invalidParticles, _haloInfo[p]._leavingLow,
 																_haloInfo[p]._leavingHigh, _haloInfo[p]._shift);
 				} else {
