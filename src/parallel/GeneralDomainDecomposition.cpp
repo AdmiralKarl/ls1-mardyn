@@ -327,7 +327,9 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 
 	std::tie(recvNeighbors, sendNeighbors) =
 		NeighborAcquirer::acquireNeighbors(_domainLength, &ownDomain, desiredDomain, _comm);
-	#if false
+	if (particleContainer->isInvalidParticleReturner()) {
+		//AutoPas
+		#if false
 		{
 			//TODO: In rare cases, the code crashes when using Autopass. This can be reproduced by setting the load balancing input to the process rank. 
 			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
@@ -336,7 +338,7 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 								true , false);
 			}
 		}
-	#else
+		#else
 		{
 			std::vector<Molecule> dummy;
 			for (auto& sender : sendNeighbors) {
@@ -346,8 +348,27 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 			}
 			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
 			// particleContainer->addParticles(emigrants); 
+			}
+		#endif
+	} else {
+		//LinkedCells
+		//Node: isInvalidParticleReturner == false Does seem to cause problems when the optimizations that work with Autopass are applied. 
+		std::vector<Molecule> dummy;
+		for (auto& sender : sendNeighbors) {
+			sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
+							false /*don't use invalid particles*/, false /*do halo position change*/,
+							true /*removeFromContainer*/);
 		}
-	#endif
+
+		std::vector<Molecule> ownMolecules{};
+		ownMolecules.reserve(particleContainer->getNumberOfParticles());
+		for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
+			ownMolecules.push_back(*iter);
+		}
+		particleContainer->clear();
+		particleContainer->rebuild(newMin.data(), newMax.data());
+		particleContainer->addParticles(ownMolecules);
+	}	
 
 	bool allDone = false;
 	double waitCounter = 30.0;
