@@ -32,7 +32,7 @@ _cutoffRadius{cutoffRadius},
 _skin{skin},
 _domainLength{domain->getGlobalLength(0), domain->getGlobalLength(1), domain->getGlobalLength(2)},
 _gridSize({0,0,0}), 
-_coords{0} {
+_coords{0, 0,0} {
 	initMPIGridDims();
 }
 
@@ -69,7 +69,7 @@ void GeneralDomainDecomposition::initMPIGridDims() {
 	MPI_CHECK(MPI_Cart_coords(_comm, _rank, DIMgeom, _coords.data()));
 	Log::global_log->info() << "MPI coordinate of current process: " << _coords[0] << ", " << _coords[1] << ", " << _coords[2] << std::endl;
 
-	std::tie(_boxMin, _boxMax) = initializeRegularGrid(_domainLength, _gridSize, _coords);
+	initializeRegularGrid(_domainLength, _gridSize, _coords);
 }
 
 GeneralDomainDecomposition::~GeneralDomainDecomposition() {
@@ -351,11 +351,7 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	_boundaryHandler.updateGlobalWallLookupTable();
 }
 
-
-
-
-void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer,
-												  std::array<double, 3> newMin, std::array<double, 3> newMax) {
+void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContainer* particleContainer, DomainPoint newMin, DomainPoint newMax) {
 	HaloRegion ownDomain{}, newDomain{};
 	for (size_t i = 0; i < DIMgeom; ++i) {
 		ownDomain.rmin[i] = _boxMin[i];
@@ -483,22 +479,20 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 	
 }
 
+void GeneralDomainDecomposition::initializeRegularGrid(const DomainPoint& domainLength, const DomainGridPoint& gridSize, const DomainGridPoint& gridCoords) {
+	_boxMin = {0., 0., 0.}; 
+	_boxMin = {0., 0., 0.};
 
-std::tuple<std::array<double, DIMgeom>, std::array<double, DIMgeom>> GeneralDomainDecomposition::initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, 
-	const std::array<int, DIMgeom>& gridSize, const std::array<int, DIMgeom>& gridCoords) {
-	std::array<double, DIMgeom> boxMin{0.};
-	std::array<double, DIMgeom> boxMax{0.};
 	// initialize it as regular grid!
 	for (int dim = 0; dim < DIMgeom; ++dim) {
-		boxMin[dim] = gridCoords[dim] * domainLength[dim] / gridSize[dim];
-		boxMax[dim] = (gridCoords[dim] + 1) * domainLength[dim] / gridSize[dim];
+		_boxMin[dim] = gridCoords[dim] * domainLength[dim] / gridSize[dim];
+		_boxMax[dim] = (gridCoords[dim] + 1) * domainLength[dim] / gridSize[dim];
 		if (gridCoords[dim] == gridSize[dim] - 1) {
 			// ensure that the upper domain boundaries match.
 			// lower domain boundaries always match, because they are 0.
-			boxMax[dim] = domainLength[dim];
+			_boxMax[dim] = domainLength[dim];
 		}
 	}
-	return std::make_tuple(boxMin, boxMax);
 }
 
 void GeneralDomainDecomposition::checkMinimalDomainSize(double minimalDomainBoundary) {
