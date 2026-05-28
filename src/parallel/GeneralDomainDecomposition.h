@@ -78,6 +78,9 @@ public:
 		throw std::runtime_error("GeneralDomainDecomposition::getNeighboursFromHaloRegion() not yet implemented");
 	}
 private:
+	using DomainPoint = std::array<double, DIMgeom>;
+    using DomainBox   = std::array<DomainPoint, 2>;
+
     /**
 	 * Method that initializes the ALLLoadBalancer
 	 */
@@ -142,10 +145,37 @@ private:
 	bool checkRebalancing(size_t step);
 	
 	/**
+	 * checked whether the reallocation is sensible according to specified characteristics
+	 * @param newBoxMin new minimum of the own subdomain
+	 * @param newBoxMax new maximum of the own subdomain
+	 */
+	bool checkForSensibleRebalance(const DomainPoint newBoxMin, const DomainPoint newBoxMax);
+
+	/**
 	 * checked whether the data in _minimalDomainSize is valid
 	 * @param minimalDomainBoundary minimal DomainSize in each dimension
 	 */
 	void checkMinimalDomainSize(double minimalDomainBoundary);
+	
+	/**
+	 * Calculate the volume of a Bbox 
+	 * @param bbox
+	 */
+    inline const double bboxVolume(const DomainBox& bbox);
+
+	
+	
+	/**
+	 * Calculates the intersection volume of two Bboxes; If there is no intersection, 0 is returned
+	 * @param bbox1
+	 * @param bbox2
+	 */
+	inline const double bboxIntersectionVolume(const DomainBox& bbox1, const DomainBox& bbox2);
+	
+	/**
+	 * Calculates the percentage of repeated changes to the total change between the previous load distribution change and the proposed one  
+	*/
+	double domainDecompositionPercentageOfRepeatedChanges();
 
     // variables
 	const bool debugMode = false;
@@ -154,6 +184,14 @@ private:
 	int _imbalanceThresholdMode{0}; // 0 == disabled, 1 == Coefficient of variation (CV), 2 == MinMax 
 	double _imbalanceThresholdCV{0};
 	double _imbalanceThresholdMinMax{0};
+	
+	std::vector<double> _previousDomainDecomposition;
+    std::vector<double> _currentDomainDecomposition;
+	std::vector<double> _futureDomainDecomposition;
+	std::vector<DomainBox> _previousDomainDecompositionChange;
+    std::vector<DomainBox> _futureDomainDecompositionChange;
+    
+	double _maximumRepeatedLoadChange{1}; // represents a percentage
 
 	std::array<double, DIMgeom> _boxMin;
 	std::array<double, DIMgeom> _boxMax;

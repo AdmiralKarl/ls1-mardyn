@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <tuple>
 #include <sstream>
+#include <array>
 
 
 GeneralDomainDecomposition::GeneralDomainDecomposition(double cutoffRadius, double skin, Domain* domain) : GeneralDomainDecomposition(cutoffRadius, skin, domain, MPI_COMM_WORLD) {}
@@ -138,6 +139,16 @@ void GeneralDomainDecomposition::readXML(XMLfileUnits& xmlconfig) {
 		Log::global_log->info() << "GeneralDomainDecomposition: imbalance Threshold MinMax is active with the value: " << _imbalanceThresholdMinMax << std::endl;
 	}
 
+	xmlconfig.getNodeValue("maximumRepeatedLoadChange", _maximumRepeatedLoadChange);
+	if (_maximumRepeatedLoadChange != 0) {
+		if (_maximumRepeatedLoadChange <= 0 || _maximumRepeatedLoadChange > 1) {
+			std::ostringstream error_message;
+			error_message << "GeneralDomainDecomposition: maximumRepeatedLoadChange settion of " << _maximumRepeatedLoadChange << " is illogical (It is not a percentage). Aborting! Please select a valid option!";
+			MARDYN_EXIT(error_message.str());
+		}
+		Log::global_log->info() << "GeneralDomainDecomposition: maximum Repeated LoadChange is active with the value: " << _maximumRepeatedLoadChange * 100 << "%" << std::endl;
+	}
+
 	if(xmlconfig.changecurrentnode("MPIGridDims")) {
 		_gridSize[0] = xmlconfig.getNodeValue_int("x", 0);
 		_gridSize[1] = xmlconfig.getNodeValue_int("y", 0);
@@ -211,6 +222,44 @@ bool GeneralDomainDecomposition::checkNeedRebalance(double lastTraversalTime) {
 	}
 }
 
+bool GeneralDomainDecomposition::checkForSensibleRebalance(const DomainPoint newBoxMin, const DomainPoint newBoxMax) {
+	if (_maximumRepeatedLoadChange == 1) {
+		return true;
+	}
+	
+	if (_previousDomainDecomposition.empty()) {
+		_previousDomainDecompositionChange.reserve(_numProcs * (_numProcs - 1));
+    	_futureDomainDecompositionChange.reserve(_numProcs * (_numProcs - 1));
+
+		_previousDomainDecomposition.resize(6 * _numProcs);
+		_currentDomainDecomposition.resize(6 * _numProcs);
+		_futureDomainDecomposition.resize(6 * _numProcs);
+
+		std::array<double, 6> oldDomainBox = {_boxMin[0], _boxMin[1], _boxMin[2], _boxMax[0], _boxMax[1], _boxMax[2]};
+		MPI_CHECK(MPI_Allgather(oldDomainBox.data(), 6, MPI_DOUBLE, _previousDomainDecomposition.data(), 6, MPI_DOUBLE, _comm));
+
+		std::array<double, 6> newDomainBox = {newBoxMin[0], newBoxMin[1], newBoxMin[2], newBoxMax[0], newBoxMax[1], newBoxMax[2]};
+		MPI_CHECK(MPI_Allgather(newDomainBox.data(), 6, MPI_DOUBLE, _currentDomainDecomposition.data(), 6, MPI_DOUBLE, _comm));
+
+		return true;
+	}
+	
+	std::array<double, 6> newDomainBox = {newBoxMin[0], newBoxMin[1], newBoxMin[2], newBoxMax[0], newBoxMax[1], newBoxMax[2]};
+	MPI_Allgather(newDomainBox.data(), 6, MPI_DOUBLE, _futureDomainDecomposition.data(), 6, MPI_DOUBLE, _comm);
+
+	const double repeatedChange = domainDecompositionPercentageOfRepeatedChanges();
+	const bool issensibleRebalance = repeatedChange <= _maximumRepeatedLoadChange;
+
+	Log::global_log->debug() << "GeneralDomainDecomposition: RepeatedLoadChange: " << repeatedChange << std::endl;
+
+	if (issensibleRebalance) {
+		_previousDomainDecomposition = _currentDomainDecomposition;
+		_currentDomainDecomposition  = _futureDomainDecomposition;
+	}
+
+	return issensibleRebalance;
+}
+
 
 bool GeneralDomainDecomposition::checkRebalancing(size_t step) {
 	return step <= _initPhase ? step % _initFrequency == 0 : step % _rebuildFrequency == 0;
@@ -232,8 +281,6 @@ void GeneralDomainDecomposition::balanceAndExchange(double lastTraversalTime, bo
 		const bool needRebalance = checkNeedRebalance(lastTraversalTime);
 		if (needRebalance || forceRebalancing) {
 			rebalance(lastTraversalTime, moleculeContainer, domain);
-			_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
-			_boundaryHandler.updateGlobalWallLookupTable();
 		}
 		else {
 			Log::global_log->info() << "GeneralDomainDecomposition: Skiping rebalancing" << std::endl;
@@ -278,6 +325,10 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	Log::global_log->set_mpi_output_root(0);
 	auto [newBoxMin, newBoxMax] = _loadBalancer->rebalance(lastTraversalTime);
 	
+	if (!checkForSensibleRebalance(newBoxMin, newBoxMax)) {
+		Log::global_log->info() << "GeneralDomainDecomposition: rebalancing will be discontinued" << std::endl;
+		return;
+	}
 																	
 	Log::global_log->debug() << "GeneralDomainDecomposition: migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
@@ -295,6 +346,9 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
+
+	_boundaryHandler.setLocalRegion(_boxMin.data(),_boxMax.data());
+	_boundaryHandler.updateGlobalWallLookupTable();
 }
 
 
@@ -484,4 +538,92 @@ double GeneralDomainDecomposition::getMaxdivMin(double* data, const int size) {
 	}
 
 	return max / min;
+}
+
+inline const double GeneralDomainDecomposition::bboxVolume(const DomainBox& bbox) {
+    return std::max(bbox[1][0] - bbox[0][0], 0.0) *
+           std::max(bbox[1][1] - bbox[0][1], 0.0) *
+           std::max(bbox[1][2] - bbox[0][2], 0.0);
+}
+
+inline const double GeneralDomainDecomposition::bboxIntersectionVolume(const DomainBox& bbox1, const DomainBox& bbox2) {
+    const DomainPoint lower{
+        std::max(bbox1[0][0], bbox2[0][0]),
+        std::max(bbox1[0][1], bbox2[0][1]),
+        std::max(bbox1[0][2], bbox2[0][2])
+    };
+
+    const DomainPoint upper{
+        std::min(bbox1[1][0], bbox2[1][0]),
+        std::min(bbox1[1][1], bbox2[1][1]),
+        std::min(bbox1[1][2], bbox2[1][2])
+    };
+
+    return bboxVolume(DomainBox{lower, upper});
+}
+
+double GeneralDomainDecomposition::domainDecompositionPercentageOfRepeatedChanges() {
+    for (int i = 0; i < _numProcs; ++i) {
+		for (int j = 0; j < _numProcs; ++j) {
+			if (i == j) continue;
+
+			const int ci = 6 * i;
+			const int lj = 6 * j;
+
+			const DomainPoint previousLower{
+				std::max(_currentDomainDecomposition[ci + 0], _previousDomainDecomposition[lj + 0]),
+				std::max(_currentDomainDecomposition[ci + 1], _previousDomainDecomposition[lj + 1]),
+				std::max(_currentDomainDecomposition[ci + 2], _previousDomainDecomposition[lj + 2])
+			};
+
+			const DomainPoint previousUpper{
+				std::min(_currentDomainDecomposition[ci + 3], _previousDomainDecomposition[lj + 3]),
+				std::min(_currentDomainDecomposition[ci + 4], _previousDomainDecomposition[lj + 4]),
+				std::min(_currentDomainDecomposition[ci + 5], _previousDomainDecomposition[lj + 5])
+			};
+
+			if (previousLower[0] < previousUpper[0] &&
+				previousLower[1] < previousUpper[1] &&
+				previousLower[2] < previousUpper[2]) {
+				_previousDomainDecompositionChange.push_back(DomainBox{previousLower, previousUpper});
+			}
+
+			const DomainPoint futureLower{
+				std::max(_currentDomainDecomposition[ci + 0], _futureDomainDecomposition[lj + 0]),
+				std::max(_currentDomainDecomposition[ci + 1], _futureDomainDecomposition[lj + 1]),
+				std::max(_currentDomainDecomposition[ci + 2], _futureDomainDecomposition[lj + 2])
+			};
+
+			const DomainPoint futureUpper{
+				std::min(_currentDomainDecomposition[ci + 3], _futureDomainDecomposition[lj + 3]),
+				std::min(_currentDomainDecomposition[ci + 4], _futureDomainDecomposition[lj + 4]),
+				std::min(_currentDomainDecomposition[ci + 5], _futureDomainDecomposition[lj + 5])
+			};
+
+			if (futureLower[0] < futureUpper[0] &&
+				futureLower[1] < futureUpper[1] &&
+				futureLower[2] < futureUpper[2]) {
+				_futureDomainDecompositionChange.push_back(DomainBox{futureLower, futureUpper});
+			}
+		}
+	}
+
+    double total_volume = 0.0;
+    double total_intersection = 0.0;
+
+    for (const DomainBox& box : _futureDomainDecompositionChange) {
+        total_volume += bboxVolume(box);
+    }
+
+    for (const DomainBox& left_box : _previousDomainDecompositionChange) {
+        total_volume += bboxVolume(left_box);
+
+        for (const DomainBox& right_box : _futureDomainDecompositionChange) {
+            const double inter = bboxIntersectionVolume(left_box, right_box);
+			mardyn_assert(inter < 0);
+            total_volume -= inter;
+            total_intersection += inter;
+        }
+    }
+    return total_intersection / total_volume;
 }
