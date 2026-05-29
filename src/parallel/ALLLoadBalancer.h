@@ -22,6 +22,10 @@ public:
 
 	std::array<bool, 3> getCoversWholeDomain() override { return _coversWholeDomain; }
 
+	std::tuple<std::array<double, 3>, std::array<double, 3>> getlocalDomain() override;
+
+	void setlocalDomain(std::array<double, 3> newBoxMin, std::array<double, 3> newBoxMax) override;
+
 private:
 	std::unique_ptr<ALL::ALL<double, double>> _all;
 	MPI_Comm _comm;

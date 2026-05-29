@@ -255,6 +255,9 @@ bool GeneralDomainDecomposition::checkForSensibleRebalance(const DomainPoint new
 	if (issensibleRebalance) {
 		_previousDomainDecomposition = _currentDomainDecomposition;
 		_currentDomainDecomposition  = _futureDomainDecomposition;
+	} else {
+		//When the load balance is discontinued, the domain is reset
+		_loadBalancer->setlocalDomain(_boxMin, _boxMax);
 	}
 
 	return issensibleRebalance;
