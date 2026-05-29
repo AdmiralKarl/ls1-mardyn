@@ -78,6 +78,10 @@ public:
 		throw std::runtime_error("GeneralDomainDecomposition::getNeighboursFromHaloRegion() not yet implemented");
 	}
 private:
+	using DomainGridPoint = std::array<int, DIMgeom>;
+	using DomainPoint = std::array<double, DIMgeom>;
+    using DomainBox   = std::array<DomainPoint, 2>;
+
     /**
 	 * Method that initializes the ALLLoadBalancer
 	 */
@@ -88,8 +92,10 @@ private:
 	*/
 	void initMPIGridDims();
 
-    std::tuple<std::array<double, 3>, std::array<double, 3>> initializeRegularGrid(const std::array<double, DIMgeom>& domainLength, const std::array<int, DIMgeom>& gridSize,
-	const std::array<int, DIMgeom>& gridCoords);
+	/**
+	initialize Domain Decomposition as regular grid!
+	*/
+    void initializeRegularGrid(const DomainPoint& domainLength, const DomainGridPoint& gridSize, const DomainGridPoint& gridCoords);
 	
 	/**
 	 * Checks whether it is necessary to perform a rebalance
@@ -132,8 +138,7 @@ private:
 	 * @param newMin new minimum of the own subdomain
 	 * @param newMax new maximum of the own subdomain
 	 */
-	void migrateParticles(Domain* domain, ParticleContainer* particleContainer, std::array<double, 3> newMin,
-						  std::array<double, 3> newMax);
+	void migrateParticles(Domain* domain, ParticleContainer* particleContainer, DomainPoint newMin, DomainPoint newMax);
 
 	/**
 	 * Check whether a rebalancing is necessary.
@@ -142,10 +147,37 @@ private:
 	bool checkRebalancing(size_t step);
 	
 	/**
+	 * checked whether the reallocation is sensible according to specified characteristics
+	 * @param newBoxMin new minimum of the own subdomain
+	 * @param newBoxMax new maximum of the own subdomain
+	 */
+	bool checkForSensibleRebalance(const DomainPoint newBoxMin, const DomainPoint newBoxMax);
+
+	/**
 	 * checked whether the data in _minimalDomainSize is valid
 	 * @param minimalDomainBoundary minimal DomainSize in each dimension
 	 */
 	void checkMinimalDomainSize(double minimalDomainBoundary);
+	
+	/**
+	 * Calculate the volume of a Bbox 
+	 * @param bbox
+	 */
+    inline const double bboxVolume(const DomainBox& bbox);
+
+	
+	
+	/**
+	 * Calculates the intersection volume of two Bboxes; If there is no intersection, 0 is returned
+	 * @param bbox1
+	 * @param bbox2
+	 */
+	inline const double bboxIntersectionVolume(const DomainBox& bbox1, const DomainBox& bbox2);
+	
+	/**
+	 * Calculates the percentage of repeated changes to the total change between the previous load distribution change and the proposed one  
+	*/
+	double domainDecompositionPercentageOfRepeatedChanges();
 
     // variables
 	const bool debugMode = false;
@@ -154,11 +186,19 @@ private:
 	int _imbalanceThresholdMode{0}; // 0 == disabled, 1 == Coefficient of variation (CV), 2 == MinMax 
 	double _imbalanceThresholdCV{0};
 	double _imbalanceThresholdMinMax{0};
+	
+	std::vector<double> _previousDomainDecomposition;
+    std::vector<double> _currentDomainDecomposition;
+	std::vector<double> _futureDomainDecomposition;
+	std::vector<DomainBox> _previousDomainDecompositionChange;
+    std::vector<DomainBox> _futureDomainDecompositionChange;
+    
+	double _maximumRepeatedLoadChange{1}; // represents a percentage
 
-	std::array<double, DIMgeom> _boxMin;
-	std::array<double, DIMgeom> _boxMax;
+	DomainPoint _boxMin{};
+	DomainPoint _boxMax{};
 
-	std::array<double, DIMgeom> _domainLength;
+	DomainPoint _domainLength;
 	std::vector<double> _minimalDomainSize = {0., 0., 0.};
 	double _cutoffRadius;
 	double _skin;
@@ -173,8 +213,8 @@ private:
 	std::unique_ptr<LoadBalancer> _loadBalancer{nullptr};
 	
 	 // Number of processes in each dimension of the MPI process grid
-	std::array<int, DIMgeom> _gridSize;
+	DomainGridPoint _gridSize;
 	
 	// Coordinate of the process in the MPI process grid
-	std::array<int, DIMgeom> _coords;
+	DomainGridPoint _coords;
 };

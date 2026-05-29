@@ -90,3 +90,12 @@ std::tuple<std::array<double, DIMgeom>, std::array<double, DIMgeom>> ALLLoadBala
 
 	return std::make_tuple(_localBoxMin, _localBoxMax);
 }
+
+std::tuple<std::array<double, 3>, std::array<double, 3>> ALLLoadBalancer::getlocalDomain(){
+	return std::make_tuple(_localBoxMin, _localBoxMax);
+}
+
+void ALLLoadBalancer::setlocalDomain(std::array<double, 3> newBoxMin, std::array<double, 3> newBoxMax){
+	_localBoxMin = newBoxMin;
+	_localBoxMax = newBoxMax;
+}
