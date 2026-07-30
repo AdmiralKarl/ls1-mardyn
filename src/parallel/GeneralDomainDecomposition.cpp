@@ -339,8 +339,6 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, LEAVING_ONLY);
 
-	moleculeContainer->deleteOuterParticles();
-
 	Log::global_log->set_mpi_output_all();
 	Log::global_log->debug() << "GeneralDomainDecomposition: work:" << lastTraversalTime << std::endl;
 	Log::global_log->set_mpi_output_root(0);
@@ -348,8 +346,18 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	
 	if (!checkForSensibleRebalance(newBoxMin, newBoxMax)) {
 		Log::global_log->info() << "GeneralDomainDecomposition: rebalancing will be discontinued" << std::endl;
+		
+		// Conclude as a normal Particle exchange
+		#ifndef MARDYN_AUTOPAS
+			moleculeContainer->deleteOuterParticles();
+		#endif
+		Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
+		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
+		
 		return;
 	}
+
+	moleculeContainer->deleteOuterParticles();
 																	
 	Log::global_log->debug() << "GeneralDomainDecomposition: migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
