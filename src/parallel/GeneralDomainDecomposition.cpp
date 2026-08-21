@@ -659,5 +659,8 @@ double GeneralDomainDecomposition::domainDecompositionPercentageOfRepeatedChange
             total_intersection += inter;
         }
     }
+	_previousDomainDecompositionChange.clear();
+	_futureDomainDecompositionChange.clear();
+
     return total_intersection / total_volume;
 }
