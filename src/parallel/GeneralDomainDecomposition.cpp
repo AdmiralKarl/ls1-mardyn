@@ -1,7 +1,7 @@
 /**
  * @file GeneralDomainDecomposition.cpp
- * @author georg
- * @date 6.11.25
+ * @author seckler, Georg von Bismarck
+ * @date 23.09.2026
  */
 
 #include "GeneralDomainDecomposition.h"
@@ -321,8 +321,6 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	Log::global_log->debug() << "GeneralDomainDecomposition: Sending Leaving." << std::endl;
 	DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, LEAVING_ONLY);
 
-	moleculeContainer->deleteOuterParticles();
-
 	Log::global_log->set_mpi_output_all();
 	Log::global_log->debug() << "GeneralDomainDecomposition: work:" << lastTraversalTime << std::endl;
 	Log::global_log->set_mpi_output_root(0);
@@ -330,8 +328,18 @@ void GeneralDomainDecomposition::rebalance(double lastTraversalTime, ParticleCon
 	
 	if (!checkForSensibleRebalance(newBoxMin, newBoxMax)) {
 		Log::global_log->info() << "GeneralDomainDecomposition: rebalancing will be discontinued" << std::endl;
+
+		// Conclude as a normal Particle exchange
+		#ifndef MARDYN_AUTOPAS
+			moleculeContainer->deleteOuterParticles();
+		#endif
+		Log::global_log->debug() << "GeneralDomainDecomposition: Sending Halos." << std::endl;
+		DomainDecompMPIBase::exchangeMoleculesMPI(moleculeContainer, domain, HALO_COPIES);
+
 		return;
 	}
+
+	moleculeContainer->deleteOuterParticles();
 																	
 	Log::global_log->debug() << "GeneralDomainDecomposition: migrating particles" << std::endl;
 	migrateParticles(domain, moleculeContainer, newBoxMin, newBoxMax);
@@ -400,19 +408,17 @@ void GeneralDomainDecomposition::migrateParticles(Domain* domain, ParticleContai
 								true /*removeFromContainer*/);
 			}
 			emigrants = particleContainer->rebuildFilter(newMin.data(), newMax.data());
-			// particleContainer->addParticles(emigrants); 
 			}
 		#endif
 	} else {
 		//LinkedCells
-		//Node: isInvalidParticleReturner == false Does seem to cause problems when the optimizations that work with Autopass are applied. 
 		std::vector<Molecule> dummy;
 		for (auto& sender : sendNeighbors) {
 			sender.initSend(particleContainer, _comm, _mpiParticleType, LEAVING_ONLY, dummy,
 							false /*don't use invalid particles*/, false /*do halo position change*/,
 							true /*removeFromContainer*/);
 		}
-
+		//Note: Changing the domain of the LinkedCells container that contains particles may results in the deletion of particles. 
 		std::vector<Molecule> ownMolecules{};
 		ownMolecules.reserve(particleContainer->getNumberOfParticles());
 		for (auto iter = particleContainer->iterator(ParticleIterator::ONLY_INNER_AND_BOUNDARY); iter.isValid(); ++iter) {
@@ -622,5 +628,8 @@ double GeneralDomainDecomposition::domainDecompositionPercentageOfRepeatedChange
             total_intersection += inter;
         }
     }
+	_previousDomainDecompositionChange.clear();
+	_futureDomainDecompositionChange.clear();
+
     return total_intersection / total_volume;
 }

@@ -1,7 +1,7 @@
 /**
  * @file GeneralDomainDecomposition.h
- * @author georg
- * @date 6.11.25
+ * @author seckler, Georg von Bismarck
+ * @date 23.09.2026
  */
 
 #pragma once
@@ -162,15 +162,17 @@ private:
 	/**
 	 * Calculate the volume of a Bbox 
 	 * @param bbox
+	 *
+	 * @return volumen of the Bbox
 	 */
     inline const double bboxVolume(const DomainBox& bbox);
 
-	
-	
 	/**
 	 * Calculates the intersection volume of two Bboxes; If there is no intersection, 0 is returned
 	 * @param bbox1
 	 * @param bbox2
+	 *
+	 * @return volumen of the intersection
 	 */
 	inline const double bboxIntersectionVolume(const DomainBox& bbox1, const DomainBox& bbox2);
 	
@@ -180,20 +182,21 @@ private:
 	double domainDecompositionPercentageOfRepeatedChanges();
 
     // variables
-	const bool debugMode = false;
 	bool _cartCommunicatorCreated = false; // Indicates whether a communicator with topology information has already been created.
 	
 	int _imbalanceThresholdMode{0}; // 0 == disabled, 1 == Coefficient of variation (CV), 2 == MinMax 
 	double _imbalanceThresholdCV{0};
 	double _imbalanceThresholdMinMax{0};
 	
+	// Variables for storing the total domain decompositions
 	std::vector<double> _previousDomainDecomposition;
     std::vector<double> _currentDomainDecomposition;
 	std::vector<double> _futureDomainDecomposition;
-	std::vector<DomainBox> _previousDomainDecompositionChange;
-    std::vector<DomainBox> _futureDomainDecompositionChange;
+	// Storing the geometric differences between domain decompositions
+	std::vector<DomainBox> _previousDomainDecompositionChange; // between previous and current
+    std::vector<DomainBox> _futureDomainDecompositionChange; // between future and current
     
-	double _maximumRepeatedLoadChange{1}; // represents a percentage
+	double _maximumRepeatedLoadChange{1}; // represents a percentage, 1 == disabled
 
 	DomainPoint _boxMin{};
 	DomainPoint _boxMax{};

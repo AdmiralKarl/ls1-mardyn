@@ -1,7 +1,7 @@
 /**
  * @file ALLLoadBalancer.cpp
- * @author seckler
- * @date 04.06.19
+ * @author seckler, Georg von Bismarck
+ * @date 23.09.2026
  */
 
 #include "ALLLoadBalancer.h"
