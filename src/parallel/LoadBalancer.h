@@ -41,4 +41,20 @@ public:
 	 * @return Array of bools, for each dimension one value: true, iff the process spans the entire domain along this dimension.
 	 */
 	virtual std::array<bool, 3> getCoversWholeDomain() = 0;
+
+	/**
+	 * Returns the local domain boundaries 
+	 * @return domain boundaries for the current process. First entry is the new boxMin,
+	 * second the new boxMax.
+	 */
+	virtual std::tuple<std::array<double, 3>, std::array<double, 3>> getlocalDomain() = 0;
+
+	/**
+	 * Sets the local domain boundaries 
+	 * @param newBoxMin 
+	 * @param newBoxMax
+	 */
+	virtual void setlocalDomain(std::array<double, 3> newBoxMin, std::array<double, 3> newBoxMax) = 0;
+
 };
+
