@@ -12,8 +12,8 @@ if(ENABLE_ALLLBL)
     if(ALLLBL_USE_BUNDLED)
         FetchContent_Declare(
                 allfetch
-                URL ${MarDyn_SOURCE_DIR}/libs/loadbalancing-v0.9.3.zip
-                URL_HASH MD5=32ee70eb11ef7544f6d9a5e40af43f35
+                URL ${MarDyn_SOURCE_DIR}/libs/loadbalancing-v0.9.4.zip
+                URL_HASH MD5=0913414f33a0d8b7c6f77ac08e2fbc34
         )
     else()
         set(ALLRepoPath https://gitlab.version.fz-juelich.de/SLMS/loadbalancing.git)
@@ -24,7 +24,7 @@ if(ENABLE_ALLLBL)
         FetchContent_Declare(
                 allfetch
                 GIT_REPOSITORY ${ALLRepoPath}
-                GIT_TAG v0.9.3
+                GIT_TAG v0.9.4
         )
     endif()
 
