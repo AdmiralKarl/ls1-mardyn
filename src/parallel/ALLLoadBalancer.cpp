@@ -29,8 +29,8 @@ void ALLLoadBalancer::readXML(XMLfileUnits& xmlconfig){
 	xmlconfig.getNodeValue("mode", loadBalancer);
 	
 	if (loadBalancer == "STAGGERED") {
+		//GeneralDomainDecompositions default before the reimplementation 
 		mode = ALL::LB_t::STAGGERED;
-		not_tested = true;
 	} else if (loadBalancer == "TENSOR") {
 		mode = ALL::LB_t::TENSOR;
 	} else if (loadBalancer == "FORCEBASED") {
