@@ -23,34 +23,28 @@ ALLLoadBalancer::ALLLoadBalancer(std::array<double, DIMgeom> localBoxMin, std::a
 
 void ALLLoadBalancer::readXML(XMLfileUnits& xmlconfig){
 	ALL::LB_t mode = ALL::LB_t::UNIMPLEMENTED;
-	bool not_tested = false;
 
-	std::string loadBalancer("TENSOR");
+	std::string loadBalancer("STAGGERED");
 	xmlconfig.getNodeValue("mode", loadBalancer);
 	
-	if (loadBalancer == "STAGGERED") {
-		//GeneralDomainDecompositions default before the reimplementation 
+	if (loadBalancer == "STAGGERED") { //default
 		mode = ALL::LB_t::STAGGERED;
 	} else if (loadBalancer == "TENSOR") {
 		mode = ALL::LB_t::TENSOR;
 	} else if (loadBalancer == "FORCEBASED") {
-		mode = ALL::LB_t::FORCEBASED;
-		not_tested = true; 
+		mode = ALL::LB_t::FORCEBASED; // has not been fully tested in LS1-Mardyn and may produce unexpected performance results
 	} else if (loadBalancer == "ALL_VORONOI_ACTIVE") {
 		#ifdef ALL_VORONOI_ACTIVE
 			mode = ALL::LB_t::VORONOI;
-			not_tested = true;
 		#else
 			std::ostringstream error_message;
 			error_message << "ALLLoadBalancer: ALL libery has VORONOI not active. Aborting! Please select a valid option!";
 			MARDYN_EXIT(error_message.str());
 		#endif
 	} else if (loadBalancer == "HISTOGRAM") {
-		mode = ALL::LB_t::HISTOGRAM;
-		not_tested = true;
+		mode = ALL::LB_t::HISTOGRAM;  // has not been fully tested in LS1-Mardyn and may produce unexpected performance results
 	} else if (loadBalancer == "TENSOR_MAX") {
-		mode = ALL::LB_t::TENSOR_MAX;
-		not_tested = true;
+		mode = ALL::LB_t::TENSOR_MAX;  // has not been fully tested in LS1-Mardyn and may produce unexpected performance results
 	} else {
 		std::ostringstream error_message;
 		error_message << "ALLLoadBalancer: Unsupported load balancer " << loadBalancer << " was selected. Aborting! Please select a valid option!";
@@ -58,10 +52,6 @@ void ALLLoadBalancer::readXML(XMLfileUnits& xmlconfig){
 	}
 
 	Log::global_log->info() << "ALLLoadBalancer: using the " << loadBalancer << " load balancer" << std::endl;
-	if (not_tested) {
-		Log::global_log->warning() << "ALLLoadBalancer: the " << loadBalancer << " load balancer has not been fully tested in LS1-Mardyn and may produce unexpected results" << std::endl;
-	}
-
 
 	_all = std::make_unique<ALL::ALL<double, double>>(ALL::TENSOR, DIMgeom, _gamma);
 	_all->setCommunicator(_comm);
